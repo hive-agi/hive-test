@@ -12,7 +12,7 @@
 
 (def source-types
   "Valid KG source types."
-  #{:manual :automated :inferred :imported})
+  #{:manual :automated :inferred :co-access})
 
 (def gen-relation
   "Generator for KG relation type keywords."

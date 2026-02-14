@@ -16,7 +16,7 @@
 
 (def gen-uuid-str
   "Generator for UUID strings."
-  (gen/fmap str (gen/gen-for-pred uuid?)))
+  (gen/fmap str gen/uuid))
 
 (def gen-timestamp
   "Generator for ISO-8601 timestamp strings."
