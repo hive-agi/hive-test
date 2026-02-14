@@ -1,0 +1,5 @@
+{:project-id "hive-test"
+ :parent "hive"
+ :description "Property-based testing library + Kaocha MCP adapter"
+ :language :clojure
+ :tags ["testing" "property-based" "kaocha" "mcp"]}

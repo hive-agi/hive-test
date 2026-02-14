@@ -1,0 +1,7 @@
+{:paths ["src"]
+ :deps {org.babashka/cli {:mvn/version "0.8.62"}
+        cheshire/cheshire {:mvn/version "5.13.0"}
+        nrepl/bencode {:mvn/version "1.2.0"}}
+ :tasks
+ {server {:doc "Start the Kaocha MCP server"
+          :task (exec 'hive-test.mcp.server/-main)}}}
