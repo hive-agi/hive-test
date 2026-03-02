@@ -4,7 +4,9 @@
  :aliases
  {:dev {:extra-paths ["dev" "test"]
         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                     nrepl/nrepl {:mvn/version "1.3.1"}}}
+                     nrepl/nrepl {:mvn/version "1.3.1"}
+                     io.github.hive-agi/hive-dsl {:local/root "../hive-dsl"}}}
   :test {:extra-paths ["test"]
-         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                      io.github.hive-agi/hive-dsl {:local/root "../hive-dsl"}}
          :main-opts ["-m" "kaocha.runner"]}}}

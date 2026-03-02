@@ -1,7 +1,7 @@
 (ns hive-test.properties
   "Property-based test macros that generate defspec forms.
    Provides reusable property templates for monad laws, roundtrips,
-   idempotency, totality, and FSM termination."
+   idempotency, totality, FSM termination, and state invariants."
   (:require [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.generators :as gen]))
@@ -131,3 +131,27 @@
   `(defspec ~name ~num-tests
      (prop/for-all [v# ~gen]
                    (not= (~pred-a v#) (~pred-b v#)))))
+
+(defmacro defprop-invariant
+  "Generate a defspec verifying a state invariant holds after applying
+   a random sequence of operations.
+
+   After executing every operation in the generated sequence against
+   initial-state, invariant-pred must return truthy.
+
+   Arguments:
+   - name:           defspec name
+   - gen-state+ops:  generator producing [initial-state op-sequence] or a map
+                     with :state and :ops keys
+   - apply-fn:       (fn [state op] -> state) — executes one operation
+   - invariant-pred: (fn [state] -> bool) — must hold after all ops
+   - opts:           optional map with :num-tests (default 200)"
+  [name gen-state+ops apply-fn invariant-pred & [{:keys [num-tests]
+                                                   :or {num-tests 200}}]]
+  `(defspec ~name ~num-tests
+     (prop/for-all [state+ops# ~gen-state+ops]
+                   (let [[state# ops#] (if (map? state+ops#)
+                                          [(:state state+ops#) (:ops state+ops#)]
+                                          state+ops#)
+                         final-state# (reduce ~apply-fn state# ops#)]
+                     (~invariant-pred final-state#)))))

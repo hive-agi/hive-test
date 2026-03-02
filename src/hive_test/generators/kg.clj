@@ -2,21 +2,16 @@
   "Generators for Knowledge Graph edges, nodes, and relations.
    Extracted from hive-mcp edges_property_test.clj."
   (:require [clojure.test.check.generators :as gen]
-            [hive-test.generators.core :as gen-core]))
-
-(def relation-types
-  "Valid KG relation types — mirrors hive-mcp.knowledge-graph.schema/relation-types."
-  #{:implements :supersedes :refines :contradicts
-    :depends-on :derived-from :applies-to :co-accessed
-    :projects-to})
+            [hive-test.generators.core :as gen-core]
+            [hive-mcp.knowledge-graph.schema :as schema]))
 
 (def source-types
   "Valid KG source types."
   #{:manual :automated :inferred :co-access})
 
 (def gen-relation
-  "Generator for KG relation type keywords."
-  (gen/elements (vec relation-types)))
+  "Generator for KG relation type keywords. Derives from schema at call time."
+  (gen/elements (vec (schema/relation-types))))
 
 (def gen-source-type
   "Generator for KG source types."
@@ -59,3 +54,34 @@
             created-by gen-core/gen-agent-id]
     {:from from :to to :relation relation :confidence confidence
      :scope scope :source-type source-type :created-by created-by}))
+
+;; =============================================================================
+;; Transaction Datum Generators
+;; =============================================================================
+
+(def gen-map-datum
+  "Generator for map-style tx-data (entity maps)."
+  (gen/let [id gen-node-id
+            from gen-node-id
+            to gen-node-id
+            relation gen-relation
+            confidence gen-confidence]
+    {:kg-edge/id id
+     :kg-edge/from from
+     :kg-edge/to to
+     :kg-edge/relation relation
+     :kg-edge/confidence confidence}))
+
+(def gen-vector-datum
+  "Generator for vector-style tx-data like [:db/add eid :attr val]."
+  (gen/let [eid gen/pos-int
+            attr (gen/elements [:kg-edge/from :kg-edge/to :kg-edge/relation
+                                :kg-edge/confidence :kg-edge/id])
+            val gen-core/gen-non-blank-string]
+    [:db/add eid attr val]))
+
+(def gen-tx-datum
+  "Generator for any valid tx-datum: map, vector, or collection."
+  (gen/one-of [gen-map-datum
+               gen-vector-datum
+               (gen/vector gen-map-datum 1 5)]))

@@ -5,7 +5,8 @@
             [hive-test.generators.core :as gen-core]
             [hive-test.generators.result :as gen-result]
             [hive-test.generators.memory :as gen-mem]
-            [hive-test.generators.kg :as gen-kg]))
+            [hive-test.generators.kg :as gen-kg]
+            [hive-test.generators.bounded-atom :as gen-ba]))
 
 (defn sample [g n] (gen/sample g n))
 
@@ -101,3 +102,98 @@
     (doseq [id (sample gen-kg/gen-node-id 10)]
       (is (string? id))
       (is (clojure.string/starts-with? id "node-")))))
+
+;; --- Bounded-atom generators ---
+
+(deftest gen-eviction-policy-test
+  (testing "generates valid eviction policies"
+    (doseq [p (sample gen-ba/gen-eviction-policy 20)]
+      (is (contains? (set gen-ba/eviction-policies) p)))))
+
+(deftest gen-capacity-eviction-policy-test
+  (testing "generates only capacity-evicting policies (no :ttl)"
+    (doseq [p (sample gen-ba/gen-capacity-eviction-policy 20)]
+      (is (contains? #{:lru :fifo} p)))))
+
+(deftest gen-max-entries-test
+  (testing "generates positive max-entries in [1, 100]"
+    (doseq [n (sample gen-ba/gen-max-entries 50)]
+      (is (pos-int? n))
+      (is (<= 1 n 100)))))
+
+(deftest gen-ttl-ms-test
+  (testing "generates nil or positive TTL"
+    (doseq [t (sample gen-ba/gen-ttl-ms 50)]
+      (is (or (nil? t) (and (pos-int? t) (<= 100 t 10000)))))))
+
+(deftest gen-bounded-atom-opts-test
+  (testing "generates structurally valid bounded-atom options"
+    (doseq [opts (sample gen-ba/gen-bounded-atom-opts 20)]
+      (is (map? opts))
+      (is (pos-int? (:max-entries opts)))
+      (is (or (nil? (:ttl-ms opts)) (pos-int? (:ttl-ms opts))))
+      (is (contains? (set gen-ba/eviction-policies) (:eviction-policy opts))))))
+
+(deftest gen-bounded-atom-opts-capacity-test
+  (testing "generates opts with capacity-evicting policies only"
+    (doseq [opts (sample gen-ba/gen-bounded-atom-opts-capacity 20)]
+      (is (contains? #{:lru :fifo} (:eviction-policy opts))))))
+
+(deftest gen-entry-key-test
+  (testing "generates keyword entry keys"
+    (doseq [k (sample gen-ba/gen-entry-key 20)]
+      (is (keyword? k))
+      (is (clojure.string/starts-with? (name k) "k")))))
+
+(deftest gen-bput-op-test
+  (testing "generates valid bput! operations"
+    (doseq [op (sample gen-ba/gen-bput-op 10)]
+      (is (vector? op))
+      (is (= :bput (first op)))
+      (is (= 3 (count op)))
+      (is (keyword? (second op))))))
+
+(deftest gen-bget-op-test
+  (testing "generates valid bget operations"
+    (doseq [op (sample gen-ba/gen-bget-op 10)]
+      (is (vector? op))
+      (is (= :bget (first op)))
+      (is (= 2 (count op)))
+      (is (keyword? (second op))))))
+
+(deftest gen-clear-op-test
+  (testing "generates bclear operation"
+    (doseq [op (sample gen-ba/gen-clear-op 5)]
+      (is (= [:bclear] op)))))
+
+(deftest gen-sweep-op-test
+  (testing "generates sweep operation"
+    (doseq [op (sample gen-ba/gen-sweep-op 5)]
+      (is (= [:sweep] op)))))
+
+(deftest gen-bounded-atom-op-test
+  (testing "generates any valid bounded-atom operation"
+    (let [ops (sample gen-ba/gen-bounded-atom-op 100)
+          op-types (set (map first ops))]
+      ;; Should produce a mix of operation types
+      (is (every? #{:bput :bget :bclear :sweep :bcount} op-types))
+      ;; With 100 samples and weighted frequency, should see at least bput and bget
+      (is (contains? op-types :bput))
+      (is (contains? op-types :bget)))))
+
+(deftest gen-op-sequence-test
+  (testing "generates sequences of operations"
+    (doseq [ops (sample gen-ba/gen-op-sequence-small 5)]
+      (is (vector? ops))
+      (is (pos? (count ops)))
+      (is (<= (count ops) 50))
+      (is (every? vector? ops)))))
+
+(deftest gen-keyed-bput-sequence-test
+  (testing "generates tracked bput sequences with known keys"
+    (doseq [result (sample gen-ba/gen-keyed-bput-sequence 5)]
+      (is (map? result))
+      (is (vector? (:keys result)))
+      (is (vector? (:ops result)))
+      (is (= (count (:keys result)) (count (:ops result))))
+      (is (every? #(= :bput (first %)) (:ops result))))))
