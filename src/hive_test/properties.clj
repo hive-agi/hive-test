@@ -147,11 +147,56 @@
    - invariant-pred: (fn [state] -> bool) — must hold after all ops
    - opts:           optional map with :num-tests (default 200)"
   [name gen-state+ops apply-fn invariant-pred & [{:keys [num-tests]
-                                                   :or {num-tests 200}}]]
+                                                  :or {num-tests 200}}]]
   `(defspec ~name ~num-tests
      (prop/for-all [state+ops# ~gen-state+ops]
                    (let [[state# ops#] (if (map? state+ops#)
-                                          [(:state state+ops#) (:ops state+ops#)]
-                                          state+ops#)
+                                         [(:state state+ops#) (:ops state+ops#)]
+                                         state+ops#)
                          final-state# (reduce ~apply-fn state# ops#)]
                      (~invariant-pred final-state#)))))
+
+;; =============================================================================
+;; Metamorphic Properties
+;; =============================================================================
+;; Test relationships between outputs for related inputs, without needing
+;; to know exact expected values. Useful when the function under test is
+;; complex but has known algebraic properties.
+
+(defmacro defprop-metamorphic
+  "Generate a defspec verifying a metamorphic relation:
+   For all x: output-rel(f(x), f(transform(x))) holds.
+
+   Metamorphic testing checks that transforming the input produces a
+   predictable relationship in the output, even when exact outputs are
+   unknown. For example: sorting a list, then prepending the minimum,
+   should give the same result as prepending and re-sorting.
+
+   Arguments:
+   - name:            defspec name
+   - f:               function under test
+   - input-transform: (fn [x] -> x') — transforms input to related input
+   - output-rel:      (fn [out out'] -> bool) — must hold between outputs
+   - gen:             generator for input values
+   - opts:            optional map with :num-tests (default 200)"
+  [name f input-transform output-rel gen & [{:keys [num-tests]
+                                             :or {num-tests 200}}]]
+  `(defspec ~name ~num-tests
+     (prop/for-all [x# ~gen]
+                   (~output-rel (~f x#) (~f (~input-transform x#))))))
+
+(defmacro defprop-commutative
+  "Generate a defspec verifying commutativity: f(a, b) = f(b, a)
+
+   Arguments:
+   - name:  defspec name
+   - f:     binary function
+   - gen-a: generator for first argument
+   - gen-b: generator for second argument
+   - opts:  optional map with :num-tests (default 200)"
+  [name f gen-a gen-b & [{:keys [num-tests]
+                          :or {num-tests 200}}]]
+  `(defspec ~name ~num-tests
+     (prop/for-all [a# ~gen-a
+                    b# ~gen-b]
+                   (= (~f a# b#) (~f b# a#)))))

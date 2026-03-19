@@ -1,6 +1,7 @@
 (ns hive-test.properties-test
   "Tests for property macros using a simple Option-like monad."
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.set :as set]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :refer [defspec]]
@@ -65,3 +66,22 @@
 (props/defprop-complement pos-neg-complement
   pos? (complement pos?)
   (gen/such-that #(not (zero? %)) gen/small-integer))
+
+;; --- Metamorphic property ---
+;; Sorting is invariant to input duplication:
+;; sort(xs) related to sort(xs ++ xs) by: they have the same distinct elements in order
+
+(props/defprop-metamorphic sort-duplicate-invariant
+  sort
+  (fn [xs] (into xs xs))
+  (fn [out1 out2] (= (distinct out1) (distinct out2)))
+  (gen/vector gen/small-integer 0 20)
+  {:num-tests 100})
+
+;; --- Commutativity property ---
+
+(props/defprop-commutative set-union-commutative
+  clojure.set/union
+  (gen/fmap set (gen/vector gen/small-integer 0 10))
+  (gen/fmap set (gen/vector gen/small-integer 0 10))
+  {:num-tests 100})
