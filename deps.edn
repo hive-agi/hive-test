@@ -5,8 +5,8 @@
  {:dev {:extra-paths ["dev" "test"]
         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                      nrepl/nrepl {:mvn/version "1.6.0"}
-                     io.github.hive-agi/hive-dsl {:git/tag "v0.3.8" :git/sha "6f44e1b"}}}
+                     io.github.hive-agi/hive-dsl {:git/tag "v0.3.9" :git/sha "494af2c"}}}
   :test {:extra-paths ["test"]
          :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                      io.github.hive-agi/hive-dsl {:git/tag "v0.3.8" :git/sha "6f44e1b"}}
+                      io.github.hive-agi/hive-dsl {:git/tag "v0.3.9" :git/sha "494af2c"}}
          :main-opts ["-m" "kaocha.runner"]}}}
