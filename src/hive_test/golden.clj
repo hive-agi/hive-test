@@ -35,7 +35,7 @@
    Controlled by UPDATE_GOLDEN environment variable."
   (= "true" (System/getenv "UPDATE_GOLDEN")))
 
-(defn- read-golden
+(defn read-golden
   "Read a golden value from an EDN file. Returns nil if file doesn't exist."
   [path]
   (let [f (File. ^String path)]
