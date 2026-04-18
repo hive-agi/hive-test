@@ -57,10 +57,11 @@
   [batom]
   (count @(:atom batom)))
 
-(defn- registry-snapshot
+(defn ^:no-doc registry-snapshot
   "Snapshot the global sweepable-registry size.
    Requires hive-dsl.bounded-atom on the classpath.
-   Returns 0 if namespace not loaded."
+   Returns 0 if namespace not loaded.
+   Public because with-resource-accounting macro expands into caller ns."
   []
   (try
     (let [reg-fn (requiring-resolve 'hive-dsl.bounded-atom/registered-sweepables)]
