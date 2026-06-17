@@ -27,6 +27,8 @@
        (parse-config default-config-string))"
   (:require [clojure.test :as t]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.pprint :as pp])
   (:import [java.io File]))
 
@@ -35,12 +37,24 @@
    Controlled by UPDATE_GOLDEN environment variable."
   (= "true" (System/getenv "UPDATE_GOLDEN")))
 
-(defn read-golden
-  "Read a golden value from an EDN file. Returns nil if file doesn't exist."
+(defn resolve-golden
+  "Resolve a golden path to a readable source, or nil. Prefers the cwd-relative
+   File (project-root + write/update runs); falls back to a CLASSPATH resource
+   so a golden committed under test/ is found even when the JVM cwd is a sibling
+   project (e.g. a shared nREPL). `test/golden/x.edn` → resource `golden/x.edn`.
+   Returns a File or URL (both slurpable), or nil when neither resolves."
   [path]
   (let [f (File. ^String path)]
-    (when (.exists f)
-      (edn/read-string (slurp f)))))
+    (if (.exists f)
+      f
+      (io/resource (str/replace-first path #"^test/" "")))))
+
+(defn read-golden
+  "Read a golden value from an EDN file. Returns nil if neither the cwd-relative
+   file nor a classpath resource for `path` exists."
+  [path]
+  (when-let [src (resolve-golden path)]
+    (edn/read-string (slurp src))))
 
 (defn- write-golden!
   "Write a value to a golden EDN file, creating parent dirs if needed."
@@ -68,7 +82,7 @@
    Returns value on success for chaining."
   [path value]
   (cond
-    (or update-mode? (not (.exists (File. ^String path))))
+    (or update-mode? (nil? (resolve-golden path)))
     (do (write-golden! path value)
         (t/is true (str "Golden snapshot written: " path))
         value)
