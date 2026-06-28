@@ -35,11 +35,22 @@
      - Complement (two predicates): hive-test.properties/defprop-complement
      - Invariant (state + ops): hive-test.properties/defprop-invariant
      - Multi-property (5+ props per fn): individual defspec"
-  (:require [clojure.test :as t]
-            [clojure.test.check.clojure-test :as tc]
+  ;; trifecta is pure codegen: it never CALLS clojure.test/test.check at
+  ;; runtime, it only EMITS forms. The only platform-specific symbols are
+  ;; deftest / is (clojure.test vs cljs.test), which are chosen per-platform
+  ;; via (:ns &env) dispatch threaded through ctx (see deftest-facets /
+  ;; deftrifecta). defspec / for-all / golden.* / mutation.* live in
+  ;; cross-platform .cljc namespaces, so the syntax-quote-emitted
+  ;; fully-qualified symbols resolve identically on clj and cljs — no &env
+  ;; dispatch needed for them. The aliases below are required only so those
+  ;; syntax-quotes resolve at compile time on both platforms.
+  (:require [clojure.test.check.clojure-test :as tc]
             [clojure.test.check.properties :as prop]
             [hive-test.golden :as golden]
-            [hive-test.mutation :as mut]))
+            [hive-test.mutation :as mut])
+  ;; Self-require macros so cljs consumers use deftest-facets / deftrifecta
+  ;; via plain :require/:refer.
+  #?(:cljs (:require-macros [hive-test.trifecta])))
 
 ;; =============================================================================
 ;; Domain: Facet Registry (Strategy Pattern, OCP)
@@ -122,12 +133,13 @@
 ;; =============================================================================
 
 (defmethod emit-golden :cases
-  [_ {:keys [path cases xf]} {:keys [name var-sym]}]
+  [_ {:keys [path cases xf]} {:keys [name var-sym cljs?]}]
   (let [g-name (symbol (str name "-golden"))
+        deftest-sym (if cljs? 'cljs.test/deftest 'clojure.test/deftest)
         xf-sym (gensym "xf")
         k-sym  (gensym "k")
         v-sym  (gensym "v")]
-    `(t/deftest ~g-name
+    `(~deftest-sym ~g-name
        (let [~xf-sym ~(or xf `identity)]
          (golden/assert-golden ~path
            (into (sorted-map)
@@ -135,12 +147,13 @@
              ~cases))))))
 
 (defmethod emit-golden :cases-fn
-  [_ {:keys [path cases xf]} {:keys [name var-sym]}]
+  [_ {:keys [path cases xf]} {:keys [name var-sym cljs?]}]
   (let [g-name  (symbol (str name "-golden"))
+        deftest-sym (if cljs? 'cljs.test/deftest 'clojure.test/deftest)
         xf-sym  (gensym "xf")
         k-sym   (gensym "k")
         args-sym (gensym "args")]
-    `(t/deftest ~g-name
+    `(~deftest-sym ~g-name
        (let [~xf-sym ~(or xf `identity)]
          (golden/assert-golden ~path
            (into (sorted-map)
@@ -148,9 +161,10 @@
              ~cases))))))
 
 (defmethod emit-golden :expr
-  [_ {:keys [path expr]} {:keys [name]}]
-  (let [g-name (symbol (str name "-golden"))]
-    `(t/deftest ~g-name
+  [_ {:keys [path expr]} {:keys [name cljs?]}]
+  (let [g-name (symbol (str name "-golden"))
+        deftest-sym (if cljs? 'cljs.test/deftest 'clojure.test/deftest)]
+    `(~deftest-sym ~g-name
        (golden/assert-golden ~path ~expr))))
 
 ;; =============================================================================
@@ -222,8 +236,9 @@
 ;; =============================================================================
 
 (defmethod emit-mutation :golden-derived
-  [_ {:keys [mutations golden-path cases xf apply?]} {:keys [name var-sym]}]
+  [_ {:keys [mutations golden-path cases xf apply?]} {:keys [name var-sym cljs?]}]
   (let [m-name    (symbol (str name "-mutations"))
+        is-sym    (if cljs? 'cljs.test/is 'clojure.test/is)
         xf-sym    (gensym "xf")
         exp-sym   (gensym "expected")
         k-sym     (gensym "k")
@@ -238,11 +253,11 @@
          (let [~xf-sym ~(or xf `identity)
                ~exp-sym (golden/read-golden ~golden-path)]
            (when-not ~exp-sym
-             (t/is false (str "Golden file missing: " ~golden-path
-                              ". Run golden test first.")))
+             (~is-sym false (str "Golden file missing: " ~golden-path
+                                 ". Run golden test first.")))
            (doseq [[~k-sym ~input-sym] ~cases]
-             (t/is (= (get ~exp-sym ~k-sym) ~call)
-                   (str "case " ~k-sym " mismatch"))))))))
+             (~is-sym (= (get ~exp-sym ~k-sym) ~call)
+                      (str "case " ~k-sym " mismatch"))))))))
 
 (defmethod emit-mutation :assert
   [_ {:keys [mutations assert]} {:keys [name var-sym]}]
@@ -300,7 +315,7 @@
                         :golden-path \"test/golden/my-fn.edn\"
                         :cases {:a 1 :b 2}})"
   [name var-sym & facets]
-  (let [ctx {:name name :var-sym var-sym}]
+  (let [ctx {:name name :var-sym var-sym :cljs? (boolean (:ns &env))}]
     `(do ~@(keep #(emit-facet % ctx) facets))))
 
 ;; =============================================================================
@@ -374,6 +389,6 @@
         :pred        #(or (nil? %) (instance? Enum %))
         :mutations   [[\"always-nil\" (fn [_] nil)]]})"
   [name var-sym spec]
-  (let [ctx    {:name name :var-sym var-sym}
+  (let [ctx    {:name name :var-sym var-sym :cljs? (boolean (:ns &env))}
         facets (spec->facets spec)]
     `(do ~@(keep #(emit-facet % ctx) facets))))

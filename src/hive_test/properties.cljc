@@ -2,9 +2,18 @@
   "Property-based test macros that generate defspec forms.
    Provides reusable property templates for monad laws, roundtrips,
    idempotency, totality, FSM termination, and state invariants."
-  (:require [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.test.check.properties :as prop]
-            [clojure.test.check.generators :as gen]))
+  ;; Self-require macros so cljs consumers can use these macros via plain
+  ;; :require/:refer. test.check's defspec/for-all live in cross-platform
+  ;; .cljc namespaces (clojure.test.check.*), so the syntax-quote-emitted
+  ;; fully-qualified symbols resolve on both clj and cljs with no &env
+  ;; dispatch needed (unlike clojure.test vs cljs.test).
+  #?(:cljs (:require-macros [hive-test.properties]))
+  #?(:clj  (:require [clojure.test.check.clojure-test :refer [defspec]]
+                     [clojure.test.check.properties :as prop]
+                     [clojure.test.check.generators :as gen])
+     :cljs (:require [clojure.test.check.clojure-test :refer-macros [defspec]]
+                     [clojure.test.check.properties :as prop :include-macros true]
+                     [clojure.test.check.generators :as gen])))
 
 (defmacro defprops-monad
   "Generate three defspec forms verifying monad laws:
