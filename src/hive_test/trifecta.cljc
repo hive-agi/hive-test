@@ -133,7 +133,7 @@
 ;; =============================================================================
 
 (defmethod emit-golden :cases
-  [_ {:keys [path cases xf]} {:keys [name var-sym cljs?]}]
+  [_ {:keys [path cases xf]} {:keys [name var-sym cljs? test-ns]}]
   (let [g-name (symbol (str name "-golden"))
         deftest-sym (if cljs? 'cljs.test/deftest 'clojure.test/deftest)
         xf-sym (gensym "xf")
@@ -141,13 +141,13 @@
         v-sym  (gensym "v")]
     `(~deftest-sym ~g-name
        (let [~xf-sym ~(or xf `identity)]
-         (golden/assert-golden ~path
+         (golden/assert-golden (golden/anchor '~test-ns ~path)
            (into (sorted-map)
              (map (fn [[~k-sym ~v-sym]] [~k-sym (~xf-sym (~var-sym ~v-sym))]))
              ~cases))))))
 
 (defmethod emit-golden :cases-fn
-  [_ {:keys [path cases xf]} {:keys [name var-sym cljs?]}]
+  [_ {:keys [path cases xf]} {:keys [name var-sym cljs? test-ns]}]
   (let [g-name  (symbol (str name "-golden"))
         deftest-sym (if cljs? 'cljs.test/deftest 'clojure.test/deftest)
         xf-sym  (gensym "xf")
@@ -155,17 +155,17 @@
         args-sym (gensym "args")]
     `(~deftest-sym ~g-name
        (let [~xf-sym ~(or xf `identity)]
-         (golden/assert-golden ~path
+         (golden/assert-golden (golden/anchor '~test-ns ~path)
            (into (sorted-map)
              (map (fn [[~k-sym ~args-sym]] [~k-sym (~xf-sym (apply ~var-sym ~args-sym))]))
              ~cases))))))
 
 (defmethod emit-golden :expr
-  [_ {:keys [path expr]} {:keys [name cljs?]}]
+  [_ {:keys [path expr]} {:keys [name cljs? test-ns]}]
   (let [g-name (symbol (str name "-golden"))
         deftest-sym (if cljs? 'cljs.test/deftest 'clojure.test/deftest)]
     `(~deftest-sym ~g-name
-       (golden/assert-golden ~path ~expr))))
+       (golden/assert-golden (golden/anchor '~test-ns ~path) ~expr))))
 
 ;; =============================================================================
 ;; Built-in: Property Types
@@ -236,11 +236,13 @@
 ;; =============================================================================
 
 (defmethod emit-mutation :golden-derived
-  [_ {:keys [mutations golden-path cases xf apply?]} {:keys [name var-sym cljs?]}]
+  [_ {:keys [mutations golden-path cases xf apply?]} {:keys [name var-sym cljs? test-ns]}]
   (let [m-name    (symbol (str name "-mutations"))
         is-sym    (if cljs? 'cljs.test/is 'clojure.test/is)
         xf-sym    (gensym "xf")
+        gp-sym    (gensym "golden-path")
         exp-sym   (gensym "expected")
+        seed-sym  (gensym "seed")
         k-sym     (gensym "k")
         input-sym (gensym "input")
         call      (if apply?
@@ -251,10 +253,14 @@
        ~mutations
        (fn []
          (let [~xf-sym ~(or xf `identity)
-               ~exp-sym (golden/read-golden ~golden-path)]
-           (when-not ~exp-sym
-             (~is-sym false (str "Golden file missing: " ~golden-path
-                                 ". Run golden test first.")))
+               ~gp-sym (golden/anchor '~test-ns ~golden-path)
+               ;; first-run auto-seed: phase-1 runs the UNMUTATED var (mutation.cljc)
+               ~exp-sym (or (golden/read-golden ~gp-sym)
+                            (let [~seed-sym (into (sorted-map)
+                                             (map (fn [[~k-sym ~input-sym]] [~k-sym ~call]))
+                                             ~cases)]
+                              (golden/update-golden! ~gp-sym ~seed-sym)
+                              ~seed-sym))]
            (doseq [[~k-sym ~input-sym] ~cases]
              (~is-sym (= (get ~exp-sym ~k-sym) ~call)
                       (str "case " ~k-sym " mismatch"))))))))
@@ -298,6 +304,18 @@
     (emit-mutation strategy spec ctx)))
 
 ;; =============================================================================
+;; Subject normalization — accept a bare symbol OR a var literal
+;; =============================================================================
+
+(defn- ->subject-sym
+  "Normalize a trifecta subject to the bare qualified symbol used for codegen.
+   Accepts a bare symbol `ns/fn` or a var literal `#'ns/fn`."
+  [subject]
+  (if (and (seq? subject) (= 'var (first subject)))
+    (second subject)
+    subject))
+
+;; =============================================================================
 ;; Public API: deftest-facets (power-user — explicit facet specs)
 ;; =============================================================================
 
@@ -315,7 +333,8 @@
                         :golden-path \"test/golden/my-fn.edn\"
                         :cases {:a 1 :b 2}})"
   [name var-sym & facets]
-  (let [ctx {:name name :var-sym var-sym :cljs? (boolean (:ns &env))}]
+  (let [ctx {:name name :var-sym (->subject-sym var-sym) :cljs? (boolean (:ns &env))
+             :test-ns (ns-name *ns*)}]
     `(do ~@(keep #(emit-facet % ctx) facets))))
 
 ;; =============================================================================
@@ -358,9 +377,12 @@
    Convenience wrapper around deftest-facets. Decomposes the flat map
    into facet specs and dispatches through the extensible registry.
 
+   Subject (var-sym): a bare qualified symbol `ns/fn` or a var literal `#'ns/fn`.
+   Any arity: set `:apply? true` with arg-vector `:cases`/`:gen`.
+
    Spec keys:
      ;; Golden facet
-     :golden-path   — EDN file path for snapshot
+     :golden-path   — EDN file path for snapshot (relative → project root)
      :cases         — {label input} map; f applied to each input
      :golden-expr   — (alternative) arbitrary expression to snapshot
      :xf            — transform on output before snapshot (default: identity)
@@ -389,6 +411,7 @@
         :pred        #(or (nil? %) (instance? Enum %))
         :mutations   [[\"always-nil\" (fn [_] nil)]]})"
   [name var-sym spec]
-  (let [ctx    {:name name :var-sym var-sym :cljs? (boolean (:ns &env))}
+  (let [ctx    {:name name :var-sym (->subject-sym var-sym) :cljs? (boolean (:ns &env))
+                :test-ns (ns-name *ns*)}
         facets (spec->facets spec)]
     `(do ~@(keep #(emit-facet % ctx) facets))))

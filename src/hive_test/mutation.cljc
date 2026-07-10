@@ -33,6 +33,33 @@
      :cljs (:require [cljs.test :as t :include-macros true]))
   #?(:cljs (:require-macros [hive-test.mutation])))
 
+;; =============================================================================
+;; Mutation value object
+;; =============================================================================
+
+(defrecord Mutation [label mutate])
+
+(defn mutation
+  "A named mutation value object: `label` + `mutate` (the mutant fn)."
+  [label mutate]
+  (->Mutation label mutate))
+
+(defn mutation?
+  "True when x is a Mutation value object."
+  [x]
+  (instance? Mutation x))
+
+(defn as-pair
+  "Coerce a mutation spec to a [label mutant-fn] pair. Accepts a Mutation, a
+   [label fn] pair, or a [label Mutation] pair (the outer label wins)."
+  [spec]
+  (cond
+    (instance? Mutation spec) [(:label spec) (:mutate spec)]
+    (vector? spec)            (let [[label x] spec]
+                                [label (if (instance? Mutation x) (:mutate x) x)])
+    :else (throw (ex-info "Invalid mutation spec (want Mutation or [label fn])"
+                          {:spec spec}))))
+
 (defn capture-test-results
   "Execute f within an isolated test reporter. Returns
    {:pass N :fail N :error N} without polluting the outer test report.
@@ -170,7 +197,8 @@
          (cljs.test/testing "original implementation passes"
            (~test-fn))
          ;; Each mutation must be caught
-         (doseq [[label# mutant-fn#] ~mutations]
+         (doseq [spec# ~mutations
+                 :let [[label# mutant-fn#] (as-pair spec#)]]
            (cljs.test/testing (str "mutation '" label# "' is caught")
              (let [results# (capture-test-results
                              (fn []
@@ -185,7 +213,8 @@
          (t/testing "original implementation passes"
            (~test-fn))
          ;; Each mutation must be caught
-         (doseq [[label# mutant-fn#] ~mutations]
+         (doseq [spec# ~mutations
+                 :let [[label# mutant-fn#] (as-pair spec#)]]
            (t/testing (str "mutation '" label# "' is caught")
              (let [original# (deref (var ~var-sym))
                    results#  (capture-test-results

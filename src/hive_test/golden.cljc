@@ -1,122 +1,62 @@
 (ns hive-test.golden
   "Characterization / golden-snapshot testing.
 
-   Captures a function's output and stores it as EDN. On subsequent runs,
-   compares against the stored snapshot. Catches unintended behavioral
-   changes during refactoring — the test locks down existing behavior
-   even when you don't fully understand it yet.
+   Captures a function's output as EDN; later runs compare against it, catching
+   unintended behavioral changes during refactoring.
 
-   Core API:
-   - assert-golden:    assertion comparing value against golden EDN file
-   - deftest-golden:   deftest wrapper around assert-golden
-   - update-golden!:   manually update a golden file
+   Persistence is a swappable port (hive-test.golden.store/GoldenStore) and path
+   anchoring a swappable strategy (hive-test.golden.root/ProjectRoot); rebind
+   *store* / *project-root* to inject alternatives (e.g. an in-memory store).
 
-   Golden files are EDN, stored relative to the project root.
-   Set UPDATE_GOLDEN=true environment variable to regenerate all snapshots.
-
-   Workflow:
-   1. Write deftest-golden with the expression to snapshot
-   2. First run creates the golden file (test passes)
-   3. Subsequent runs compare against the snapshot
-   4. If behavior changes intentionally: UPDATE_GOLDEN=true lein test
-   5. Review the diff in git to confirm the change is expected
-
-   Example:
-     (deftest-golden parse-defaults
-       \"test/golden/parse-defaults.edn\"
-       (parse-config default-config-string))
-
-   ClojureScript note: golden files are read/written through the Node.js
-   `fs`/`path` modules (this ns assumes a Node target on cljs). The JVM-only
-   classpath-resource fallback in `resolve-golden` is unavailable on cljs —
-   golden paths resolve purely as filesystem paths there."
+   Core API: assert-golden, read-golden, update-golden!, anchor,
+   deftest-golden, deftest-golden-fn. Golden paths anchor to the test's project
+   root. Set UPDATE_GOLDEN=true to regenerate snapshots."
   #?(:clj  (:require [clojure.test :as t]
-                     [clojure.edn :as edn]
-                     [clojure.java.io :as io]
-                     [clojure.string :as str]
-                     [clojure.pprint :as pp])
+                     [hive-test.golden.store :as store]
+                     [hive-test.golden.root :as root])
      :cljs (:require [cljs.test :as t :include-macros true]
-                     [cljs.reader :as reader]
-                     [cljs.pprint :as pp]))
-  #?(:cljs (:require-macros [hive-test.golden]))
-  #?(:clj (:import [java.io File])))
+                     [hive-test.golden.store :as store]
+                     [hive-test.golden.root :as root]))
+  #?(:cljs (:require-macros [hive-test.golden])))
 
-#?(:cljs (def ^:private fs (js/require "fs")))
-#?(:cljs (def ^:private node-path (js/require "path")))
+(def ^:dynamic *store*
+  "Injected GoldenStore port (DIP seam). Default: filesystem."
+  (store/file-store))
+
+(def ^:dynamic *project-root*
+  "Injected ProjectRoot strategy (OCP seam). Default: classpath walk-up."
+  root/default-resolver)
 
 (def ^:private update-mode?
-  "When true, golden files are overwritten instead of compared.
-   Controlled by UPDATE_GOLDEN environment variable."
+  "True when golden files are overwritten instead of compared (UPDATE_GOLDEN)."
   #?(:clj  (= "true" (System/getenv "UPDATE_GOLDEN"))
      :cljs (= "true" (.. js/process -env -UPDATE_GOLDEN))))
 
-(defn resolve-golden
-  "Resolve a golden path to a readable source, or nil.
-
-   On the JVM: prefers the cwd-relative File (project-root + write/update runs);
-   falls back to a CLASSPATH resource so a golden committed under test/ is found
-   even when the JVM cwd is a sibling project (e.g. a shared nREPL).
-   `test/golden/x.edn` → resource `golden/x.edn`. Returns a File or URL (both
-   slurpable), or nil when neither resolves.
-
-   On ClojureScript (Node): there is no classpath, so this returns the path
-   string when the file exists on disk, otherwise nil."
-  [path]
-  #?(:clj
-     (let [f (File. ^String path)]
-       (if (.exists f)
-         f
-         (io/resource (str/replace-first path #"^test/" ""))))
-     :cljs
-     (when (.existsSync fs path) path)))
+(defn anchor
+  "Resolve a relative golden `path` against `test-ns`'s project root."
+  [test-ns path]
+  (root/anchor *project-root* test-ns path))
 
 (defn read-golden
-  "Read a golden value from an EDN file. Returns nil if neither the cwd-relative
-   file nor a classpath resource for `path` exists (on cljs: if the file does
-   not exist on disk)."
+  "Golden value stored at `path`, or nil when absent."
   [path]
-  (when-let [src (resolve-golden path)]
-    #?(:clj  (edn/read-string (slurp src))
-       :cljs (reader/read-string (.readFileSync fs src "utf8")))))
-
-(defn- write-golden!
-  "Write a value to a golden EDN file, creating parent dirs if needed."
-  [path value]
-  #?(:clj
-     (let [f (File. ^String path)]
-       (.mkdirs (.getParentFile f))
-       (spit f (with-out-str (pp/pprint value))))
-     :cljs
-     (let [dir (.dirname node-path path)]
-       (when-not (.existsSync fs dir)
-         (.mkdirSync fs dir #js {:recursive true}))
-       (.writeFileSync fs path (with-out-str (pp/pprint value))))))
+  (store/-read *store* path))
 
 (defn update-golden!
-  "Manually update a golden file with a new value.
-   Use when you've intentionally changed behavior and want to
-   update the snapshot without setting UPDATE_GOLDEN=true globally."
+  "Overwrite the golden at `path` with `value`; returns value."
   [path value]
-  (write-golden! path value)
-  value)
+  (store/-write! *store* path value))
 
 (defn assert-golden
-  "Assert that value matches the golden snapshot stored at path.
+  "Assert `value` matches the golden snapshot at `path`.
 
-   Behavior:
-   - File doesn't exist → writes snapshot, test passes (first run)
-   - UPDATE_GOLDEN=true → overwrites snapshot, test passes
-   - Otherwise → compares value against stored snapshot
-
-   Returns value on success for chaining."
+   Absent golden or UPDATE_GOLDEN=true → write snapshot, pass (first run);
+   otherwise compare against the stored snapshot. Returns value for chaining."
   [path value]
-  (cond
-    (or update-mode? (nil? (resolve-golden path)))
-    (do (write-golden! path value)
+  (if (or update-mode? (not (store/-exists? *store* path)))
+    (do (store/-write! *store* path value)
         (t/is true (str "Golden snapshot written: " path))
         value)
-
-    :else
     (let [expected (read-golden path)]
       (t/is (= expected value)
             (str "Golden snapshot mismatch at " path
@@ -124,45 +64,22 @@
       value)))
 
 (defmacro deftest-golden
-  "Define a golden/characterization test.
-
-   On first run, captures expr's output to golden-path as EDN.
-   On subsequent runs, asserts the output hasn't changed.
-
-   Arguments:
-   - name:        test name (symbol)
-   - golden-path: path to golden EDN file (string)
-   - expr:        expression whose value is snapshotted
-
-   Example:
-     (deftest-golden config-shape
-       \"test/golden/config-shape.edn\"
-       (keys (load-config \"defaults\")))"
+  "Define a golden/characterization test: snapshot `expr` to `golden-path` on
+   first run, assert unchanged thereafter."
   [name golden-path expr]
-  (if (:ns &env)
-    `(cljs.test/deftest ~name
-       (assert-golden ~golden-path ~expr))
-    `(clojure.test/deftest ~name
-       (assert-golden ~golden-path ~expr))))
+  (let [test-ns (list 'quote (ns-name *ns*))]
+    (if (:ns &env)
+      `(cljs.test/deftest ~name
+         (assert-golden (anchor ~test-ns ~golden-path) ~expr))
+      `(clojure.test/deftest ~name
+         (assert-golden (anchor ~test-ns ~golden-path) ~expr)))))
 
 (defmacro deftest-golden-fn
-  "Like deftest-golden but takes a zero-arg function instead of an expression.
-   Useful when setup is needed or the expression is complex.
-
-   Arguments:
-   - name:        test name (symbol)
-   - golden-path: path to golden EDN file (string)
-   - f:           zero-arg function returning the value to snapshot
-
-   Example:
-     (deftest-golden-fn api-response-shape
-       \"test/golden/api-response.edn\"
-       (fn []
-         (let [resp (handler {:uri \"/status\" :method :get})]
-           (select-keys resp [:status :headers]))))"
+  "Like deftest-golden but snapshots the result of the zero-arg function `f`."
   [name golden-path f]
-  (if (:ns &env)
-    `(cljs.test/deftest ~name
-       (assert-golden ~golden-path (~f)))
-    `(clojure.test/deftest ~name
-       (assert-golden ~golden-path (~f)))))
+  (let [test-ns (list 'quote (ns-name *ns*))]
+    (if (:ns &env)
+      `(cljs.test/deftest ~name
+         (assert-golden (anchor ~test-ns ~golden-path) (~f)))
+      `(clojure.test/deftest ~name
+         (assert-golden (anchor ~test-ns ~golden-path) (~f))))))
