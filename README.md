@@ -21,6 +21,21 @@ Add to your `deps.edn` `:test` alias:
 io.github.hive-agi/hive-test {:git/tag "v0.3.0" :git/sha "763e4bc"}
 ```
 
+## Worked example
+
+A complete, runnable example lives under `test/hive_test/examples/`:
+
+- [`pricing.clj`](test/hive_test/examples/pricing.clj) — a small domain built from
+  a `DiscountPolicy` **protocol** (port), record **adapters** (`NoDiscount` /
+  `PercentOff` / `SpendThreshold`, the strategy pattern), a `LineItem` **value
+  object**, and pure functions.
+- [`pricing_test.clj`](test/hive_test/examples/pricing_test.clj) — exercises the
+  whole toolkit against it: a `deftrifecta` (golden + property + mutation with
+  combinators), a standalone `deftest-golden` table, standalone
+  `deftest-mutations`, a raw test.check `defspec` invariant, and an LSP contract
+  check over every policy adapter. Its committed goldens are in
+  `test/golden/examples/`.
+
 ## Trifecta — golden + property + mutation in one form
 
 `hive-test.trifecta/deftrifecta` decomposes a flat spec into up to three test

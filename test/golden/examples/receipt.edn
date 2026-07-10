@@ -1,0 +1,12 @@
+{:none
+ {:sku "A", :subtotal-cents 300, :discount-cents 0, :total-cents 300},
+ :ten-pct
+ {:sku "B",
+  :subtotal-cents 1000,
+  :discount-cents 100,
+  :total-cents 900},
+ :threshold
+ {:sku "C",
+  :subtotal-cents 1000,
+  :discount-cents 200,
+  :total-cents 800}}
