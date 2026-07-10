@@ -3,9 +3,15 @@
    Extracted from hive-mcp result_property_test.clj."
   (:require [clojure.test.check.generators :as gen]))
 
-;; Error category taxonomy — mirrors hive-mcp.dns.result.taxonomy
+;; Assorted error-category keywords for SHAPE fuzzing of the Result DSL.
+;; NOT the category truth: the single source of registered error categories is
+;; hive-dsl.result.taxonomy/registered-categories. This sample DELIBERATELY
+;; includes non-registered keywords (e.g. :drone/spawn-failed, :emacs/not-connected)
+;; to exercise the PERMISSIVE err shape (any qualified keyword). For canonical
+;; known-category generation, source the taxonomy directly — see
+;; hive-spi.schema.result-agreement-test/known-category-gen (MALLI-P4).
 (def error-categories
-  "Known error categories from the Result DSL taxonomy."
+  "Sample error-category keywords for SHAPE fuzzing (NOT the taxonomy — see ns note)."
   [:io/timeout :io/read-failure
    :sdk/invalid-request
    :kg/node-not-found
