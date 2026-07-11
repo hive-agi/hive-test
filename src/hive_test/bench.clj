@@ -18,7 +18,8 @@
    Wire-up:
      (require '[hive-test.bench])      ; triggers reporter registration
      (defbench hot-path {:threshold-p95-ms 5.0} (do-work))"
-  (:require [clojure.test :as t]))
+  (:require [clojure.test :as t]
+            [hive-dsl.result :refer [rescue]]))
 
 (defn- log-warn [& args] (binding [*out* *err*] (apply println "[WARN]" args)))
 (defn- log-debug [& _args] nil) ; no-op; upgrade to tools.logging if added to deps
@@ -86,8 +87,8 @@
    Falls back to a deftest that reports a skip message if hive-ttracking
    is not on the classpath, so test suites still compile without it."
   [bench-sym opts & body]
-  (if (try (requiring-resolve 'hive-ttracking.bench/defbench)
-           (catch Throwable _ nil))
+  (if (rescue nil
+        (requiring-resolve 'hive-ttracking.bench/defbench))
     `(hive-ttracking.bench/defbench ~bench-sym ~opts ~@body)
     `(clojure.test/deftest ~(vary-meta bench-sym assoc :bench true :skipped true)
        (binding [*out* *err*]

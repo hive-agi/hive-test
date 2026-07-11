@@ -2,7 +2,8 @@
   "File watcher for watch mode — monitors src/test dirs for .clj changes
    and triggers test re-runs via nREPL."
   (:require [hive-test.mcp.nrepl :as nrepl]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [hive-dsl.result :refer [rescue]])
   (:import [java.nio.file FileSystems Paths StandardWatchEventKinds WatchService]
            [java.util.concurrent Executors TimeUnit]))
 
@@ -78,17 +79,15 @@
       ;; Watcher thread
       (future
         (while @running?
-          (try
+          (rescue nil
             (when-let [key (.poll ws 1 TimeUnit/SECONDS)]
-              (let [events (.pollEvents key)
-                    has-clj? (some #(clj-file? (.context %)) events)]
-                (when has-clj?
-                  (reset! pending true)
-                  (.schedule executor ^Runnable run-tests-fn
-                             ^long debounce-ms TimeUnit/MILLISECONDS)))
-              (.reset key))
-            (catch Exception _
-              nil))))
+                          (let [events (.pollEvents key)
+                                has-clj? (some #(clj-file? (.context %)) events)]
+                            (when has-clj?
+                              (reset! pending true)
+                              (.schedule executor ^Runnable run-tests-fn
+                                         ^long debounce-ms TimeUnit/MILLISECONDS)))
+                          (.reset key)))))
 
       (let [state {:watch-service ws
                    :executor executor
@@ -102,8 +101,10 @@
   []
   (when-let [{:keys [watch-service executor running?]} @watcher-state]
     (reset! running? false)
-    (try (.close ^WatchService watch-service) (catch Exception _))
-    (try (.shutdownNow ^java.util.concurrent.ExecutorService executor) (catch Exception _))
+    (rescue nil
+      (.close ^WatchService watch-service))
+    (rescue nil
+      (.shutdownNow ^java.util.concurrent.ExecutorService executor))
     (reset! watcher-state nil)
     {:stopped true}))
 
