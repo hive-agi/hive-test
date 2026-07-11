@@ -2,7 +2,8 @@
   "Babashka-compatible nREPL client for test execution.
    Connects to a running nREPL and evaluates Kaocha/clojure.test forms."
   (:require [bencode.core :as bencode]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [hive-dsl.result :refer [rescue]])
   (:import [java.net Socket]
            [java.io PushbackInputStream]))
 
@@ -90,10 +91,9 @@
         errors     (->> responses
                         (filter #(some #{"eval-error"} (get % "status" []))))
         ;; Try to parse {:test N :pass N :fail N :error N} from value
-        summary    (try
+        summary    (rescue nil
                      (when-let [v (last all-values)]
-                       (read-string v))
-                     (catch Exception _ nil))]
+                                            (read-string v)))]
     {:summary (when (map? summary) summary)
      :output all-out
      :errors (when (seq all-err) all-err)

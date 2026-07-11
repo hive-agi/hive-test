@@ -22,7 +22,8 @@
 
      (use-fixtures :each resource-cleanup-fixture)"
   (:require [clojure.test :refer [is do-report]]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [hive-dsl.result :refer [rescue]])
   (:import [java.lang.management ManagementFactory]))
 
 ;; =============================================================================
@@ -63,23 +64,19 @@
    Returns 0 if namespace not loaded.
    Public because with-resource-accounting macro expands into caller ns."
   []
-  (try
+  (rescue 0
     (let [reg-fn (requiring-resolve 'hive-dsl.bounded-atom/registered-sweepables)]
-      (count (reg-fn)))
-    (catch Exception _
-      0)))
+          (count (reg-fn)))))
 
 (defn- clear-registry!
   "Clear the global sweepable-registry.
    No-op if hive-dsl.bounded-atom not on classpath."
   []
-  (try
+  (rescue nil
     (let [reg-fn (requiring-resolve 'hive-dsl.bounded-atom/registered-sweepables)
-          unreg-fn (requiring-resolve 'hive-dsl.bounded-atom/unregister-sweepable!)]
-      (doseq [k (keys (reg-fn))]
-        (unreg-fn k)))
-    (catch Exception _
-      nil)))
+              unreg-fn (requiring-resolve 'hive-dsl.bounded-atom/unregister-sweepable!)]
+          (doseq [k (keys (reg-fn))]
+            (unreg-fn k)))))
 
 ;; =============================================================================
 ;; Bounded atom assertions
