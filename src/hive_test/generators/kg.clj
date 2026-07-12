@@ -2,16 +2,32 @@
   "Generators for Knowledge Graph edges, nodes, and relations.
    Extracted from hive-mcp edges_property_test.clj."
   (:require [clojure.test.check.generators :as gen]
-            [hive-test.generators.core :as gen-core]
-            [hive-mcp.knowledge-graph.schema :as schema]))
+            [hive-test.generators.core :as gen-core]))
 
 (def source-types
   "Valid KG source types."
   #{:manual :automated :inferred :co-access})
 
+(def relation-types
+  "The KG relation vocabulary these generators draw from.
+
+   Injected, not imported: a test-generator library must not compile-depend on
+   the application it generates data for. Reading this set out of the host left
+   hive-test unloadable anywhere but inside that host.
+
+   Hosts whose vocabulary is open at runtime — hive-mcp lets addons register
+   extra relations — pass their live set to `relation-gen` instead."
+  #{:implements :supersedes :refines :contradicts
+    :depends-on :derived-from :applies-to :relates})
+
+(defn relation-gen
+  "Generator of relation keywords drawn from `rels` (default `relation-types`)."
+  ([] (relation-gen relation-types))
+  ([rels] (gen/elements (vec rels))))
+
 (def gen-relation
-  "Generator for KG relation type keywords. Derives from schema at call time."
-  (gen/elements (vec (schema/relation-types))))
+  "Generator for KG relation type keywords."
+  (relation-gen))
 
 (def gen-source-type
   "Generator for KG source types."

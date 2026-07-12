@@ -35,25 +35,34 @@
 (defn run-concurrent
   "Execute op-chunks in parallel threads, synchronized by a CyclicBarrier.
    All threads start simultaneously after reaching the barrier.
-   Returns true if all completed within timeout-ms, false on timeout."
+   Returns true if all completed within timeout-ms, false on timeout.
+
+   Always joins its workers before returning, even on timeout. `timeout-ms`
+   bounds the reported result, not the workers' lifetime: callers routinely
+   free the resource under test in a `finally` (close an LMDB env, delete its
+   temp dir), and a worker still touching that resource after we return does
+   not throw — it walks freed memory and takes the JVM down with SIGSEGV. A
+   slow run must therefore report false, not outlive us."
   [op-chunks apply-op-fn! state timeout-ms]
   (if (empty? op-chunks)
     true
     (let [n-threads (count op-chunks)
           barrier   (CyclicBarrier. n-threads)
           latch     (CountDownLatch. n-threads)
-          errors    (atom [])]
-      (doseq [chunk op-chunks]
-        (future
-          (try
-            (.await barrier)
-            (doseq [op chunk]
-              (apply-op-fn! state op))
-            (catch Exception e
-              (swap! errors conj e))
-            (finally
-              (.countDown latch)))))
+          errors    (atom [])
+          workers   (mapv (fn [chunk]
+                            (future
+                              (try
+                                (.await barrier)
+                                (doseq [op chunk]
+                                  (apply-op-fn! state op))
+                                (catch Exception e
+                                  (swap! errors conj e))
+                                (finally
+                                  (.countDown latch)))))
+                          op-chunks)]
       (let [completed? (.await latch timeout-ms TimeUnit/MILLISECONDS)]
+        (run! deref workers)
         (when (seq @errors)
           (throw (ex-info "Concurrent execution had errors"
                           {:errors (mapv #(.getMessage %) @errors)})))

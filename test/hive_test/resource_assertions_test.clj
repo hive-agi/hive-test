@@ -112,9 +112,25 @@
           results (capture-test-results
                     (fn []
                       (ra/assert-thread-count-stable 0
-                        ;; Start an executor and intentionally do NOT stop it
-                        (let [exec (lc/start! (lc/->managed-executor 4))]
+                        ;; Start an executor and intentionally do NOT stop it.
+                        ;; A ScheduledThreadPoolExecutor spawns its core threads
+                        ;; lazily, on first submit — starting one leaks nothing,
+                        ;; so submit work to materialize the threads. Without
+                        ;; this the body leaks zero threads and the assertion
+                        ;; under test correctly reports stability, which is the
+                        ;; opposite of what this test means to prove.
+                        (let [exec  (lc/start! (lc/->managed-executor 4))
+                              start (java.util.concurrent.CountDownLatch. 4)
+                              hold  (java.util.concurrent.CountDownLatch. 1)]
                           (reset! leaked-exec exec)
+                          (dotimes [_ 4]
+                            (lc/submit! exec (fn []
+                                               (.countDown start)
+                                               (.await hold))))
+                          ;; Block until all 4 threads exist, so the leak is
+                          ;; observable rather than racing the assertion.
+                          (.await start)
+                          (.countDown hold)
                           exec))))]
       ;; Clean up the leaked executor
       (when @leaked-exec
