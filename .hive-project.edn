@@ -2,4 +2,4 @@
  :parent "hive"
  :description "Property-based testing library + Kaocha MCP adapter"
  :language :clojure
- :tags ["testing" "property-based" "kaocha" "mcp"]}
+ :tags ["testing" "property-based" "kaocha" "mcp"] :carto {:source-roots ["src" "test"]}}
