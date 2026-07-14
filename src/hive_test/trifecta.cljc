@@ -47,7 +47,8 @@
   (:require [clojure.test.check.clojure-test :as tc]
             [clojure.test.check.properties :as prop]
             [hive-test.golden :as golden]
-            [hive-test.mutation :as mut])
+            [hive-test.mutation :as mut]
+            [hive-test.stateful :as sf])
   ;; Self-require macros so cljs consumers use deftest-facets / deftrifecta
   ;; via plain :require/:refer.
   #?(:cljs (:require-macros [hive-test.trifecta])))
@@ -91,6 +92,18 @@
 
    Extension point: downstream defines new property types via defmethod."
   (fn [property-type _spec _ctx] property-type))
+
+(defmethod emit-property :stateful
+  ;; Model-based facet: :machine is a form evaluating to a hive-test.stateful
+  ;; Machine; :check-opts are passed to `check`. Emits a deftest (not a defspec)
+  ;; because the exploration is exhaustive within bounds, not sampled.
+  [_ {:keys [machine check-opts]} {:keys [name cljs?]}]
+  (let [p-name      (symbol (str name "-stateful"))
+        deftest-sym (if cljs? 'cljs.test/deftest 'clojure.test/deftest)
+        is-sym      (if cljs? 'cljs.test/is 'clojure.test/is)]
+    `(~deftest-sym ~p-name
+      (let [r# (sf/check ~machine ~(or check-opts {}))]
+        (~is-sym (:ok? r#) (sf/report-str r#))))))
 
 ;; =============================================================================
 ;; Domain: Golden Source Registry (Strategy Pattern, OCP)
