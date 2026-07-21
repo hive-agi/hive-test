@@ -4,7 +4,6 @@ target/
 *.class
 *.jar
 .lsp/
-.clj-kondo/.cache/
 local.deps.edn
-.clj-kondo/
 *.elc
+.clj-kondo/.cache/
