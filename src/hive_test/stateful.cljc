@@ -40,69 +40,109 @@
         :when (or (nil? pre) (pre model a))]
     [id a (next model a)]))
 
+(defprotocol IExplorer
+  "Pluggable state-space exploration strategy for a Machine.
+
+   An implementation decides HOW reachable states are traversed; everything
+   downstream (dead-ends, invariant-violations, vacuity, check) consumes only
+   the graph data:
+   {:root id :states {id model} :edges {id [[cmd args id'] ...]}
+    :parent {id [parent-id cmd args]} :truncated? bool}."
+  (-explore [explorer machine opts]
+    "Reachable states of `machine` within `opts` (:max-states, :max-depth), as
+     the graph map described in the protocol docstring.")
+  (-path-to [explorer graph id]
+    "Shortest command sequence from the graph's root to `id`: [[cmd args] ...].")
+  (-co-reachable [explorer graph goal?]
+    "Ids of states in `graph` from which some `goal?` state is still reachable.")
+  (-dead-ends [explorer graph goal? opts]
+    "States of `graph` from which no `goal?` state is reachable, each
+     {:state model :path [[cmd args] ...]}; opts :limit caps the count (default 5)."))
+
+(defrecord DefaultExplorer []
+  IExplorer
+  (-explore [_ machine {:keys [max-states max-depth] :or {max-states 20000 max-depth 20}}]
+    (let [id-of (or (:ident machine) identity)
+          root  ((:init machine))
+          rid   (id-of root)]
+      (loop [q      (conj empty-queue [root 0])
+             states {rid root}
+             edges  {}
+             parent {}
+             trunc? false]
+        (if-let [[model depth] (peek q)]
+          (let [mid   (id-of model)
+                succ  (enabled machine model)
+                stop? (or (>= depth max-depth) (>= (count states) max-states))]
+            (if stop?
+              (recur (pop q) states edges parent (or trunc? (boolean (seq succ))))
+              (let [fresh (remove (fn [[_ _ m']] (contains? states (id-of m'))) succ)]
+                (recur (into (pop q) (map (fn [[_ _ m']] [m' (inc depth)])) fresh)
+                       (into states (map (fn [[_ _ m']] [(id-of m') m'])) fresh)
+                       (assoc edges mid (mapv (fn [[c a m']] [c a (id-of m')]) succ))
+                       (into parent (map (fn [[c a m']] [(id-of m') [mid c a]])) fresh)
+                       trunc?))))
+          {:root rid :states states :edges edges :parent parent :truncated? trunc?}))))
+  (-path-to [_ {:keys [root parent]} id]
+    (loop [cur id acc ()]
+      (if (= cur root)
+        (vec acc)
+        (if-let [[pid cmd args] (get parent cur)]
+          (recur pid (conj acc [cmd args]))
+          (vec acc)))))
+  (-co-reachable [_ {:keys [states edges]} goal?]
+    (let [preds (reduce-kv (fn [acc from tos]
+                             (reduce (fn [a [_ _ to]] (update a to (fnil conj #{}) from))
+                                     acc tos))
+                           {} edges)
+          goal-ids (into #{} (comp (filter (fn [[_ m]] (goal? m))) (map key)) states)]
+      (loop [q (into empty-queue goal-ids) live goal-ids]
+        (if-let [id (peek q)]
+          (let [fresh (remove live (get preds id #{}))]
+            (recur (into (pop q) fresh) (into live fresh)))
+          live))))
+  (-dead-ends [explorer {:keys [states] :as graph} goal? {:keys [limit] :or {limit 5}}]
+    (let [live (-co-reachable explorer graph goal?)]
+      (->> states
+           (remove (fn [[id _]] (contains? live id)))
+           (take limit)
+           (mapv (fn [[id model]] {:state model :path (-path-to explorer graph id)}))))))
+
+(def default-explorer
+  "The IExplorer the public fns delegate to: breadth-first, bounded by
+   :max-states/:max-depth."
+  (->DefaultExplorer))
+
 (defn explore
   "Breadth-first over reachable states. Returns
    {:root id :states {id model} :edges {id [[cmd args id'] ...]}
     :parent {id [parent-id cmd args]} :truncated? bool}.
    :parent is the BFS tree, so paths derived from it are shortest.
-   :truncated? is true iff a bound cut off unexplored successors."
-  [machine {:keys [max-states max-depth] :or {max-states 20000 max-depth 20}}]
-  (let [id-of (or (:ident machine) identity)
-        root  ((:init machine))
-        rid   (id-of root)]
-    (loop [q      (conj empty-queue [root 0])
-           states {rid root}
-           edges  {}
-           parent {}
-           trunc? false]
-      (if-let [[model depth] (peek q)]
-        (let [mid   (id-of model)
-              succ  (enabled machine model)
-              stop? (or (>= depth max-depth) (>= (count states) max-states))]
-          (if stop?
-            (recur (pop q) states edges parent (or trunc? (boolean (seq succ))))
-            (let [fresh (remove (fn [[_ _ m']] (contains? states (id-of m'))) succ)]
-              (recur (into (pop q) (map (fn [[_ _ m']] [m' (inc depth)])) fresh)
-                     (into states (map (fn [[_ _ m']] [(id-of m') m'])) fresh)
-                     (assoc edges mid (mapv (fn [[c a m']] [c a (id-of m')]) succ))
-                     (into parent (map (fn [[c a m']] [(id-of m') [mid c a]])) fresh)
-                     trunc?))))
-        {:root rid :states states :edges edges :parent parent :truncated? trunc?}))))
+   :truncated? is true iff a bound cut off unexplored successors.
+
+   Delegates to [[default-explorer]]; pass an IExplorer via `check`'s
+   :explorer opt or call the protocol fns to plug another strategy."
+  [machine opts]
+  (-explore default-explorer machine opts))
 
 (defn path-to
-  "Shortest command sequence from the root to `id`: [[cmd args] ...]."
-  [{:keys [root parent]} id]
-  (loop [cur id acc ()]
-    (if (= cur root)
-      (vec acc)
-      (if-let [[pid cmd args] (get parent cur)]
-        (recur pid (conj acc [cmd args]))
-        (vec acc)))))
+  "Shortest command sequence from the root to `id`: [[cmd args] ...].
+   Delegates to [[default-explorer]]."
+  [graph id]
+  (-path-to default-explorer graph id))
 
 (defn co-reachable
   "Ids of states from which some goal state is still reachable. Backward BFS over
-   the full edge set."
-  [{:keys [states edges]} goal?]
-  (let [preds (reduce-kv (fn [acc from tos]
-                           (reduce (fn [a [_ _ to]] (update a to (fnil conj #{}) from))
-                                   acc tos))
-                         {} edges)
-        goal-ids (into #{} (comp (filter (fn [[_ m]] (goal? m))) (map key)) states)]
-    (loop [q (into empty-queue goal-ids) live goal-ids]
-      (if-let [id (peek q)]
-        (let [fresh (remove live (get preds id #{}))]
-          (recur (into (pop q) fresh) (into live fresh)))
-        live))))
+   the full edge set. Delegates to [[default-explorer]]."
+  [graph goal?]
+  (-co-reachable default-explorer graph goal?))
 
 (defn dead-ends
   "Reachable states from which no goal state is reachable — the liveness violation.
-   Each is {:state model :path [[cmd args] ...]}, the path being shortest."
-  [{:keys [states] :as graph} goal? & [{:keys [limit] :or {limit 5}}]]
-  (let [live (co-reachable graph goal?)]
-    (->> states
-         (remove (fn [[id _]] (contains? live id)))
-         (take limit)
-         (mapv (fn [[id model]] {:state model :path (path-to graph id)})))))
+   Each is {:state model :path [[cmd args] ...]}, the path being shortest.
+   Delegates to [[default-explorer]]."
+  [graph goal? & [opts]]
+  (-dead-ends default-explorer graph goal? opts))
 
 (defn invariant-violations
   "Reachable states breaking an invariant, each with the shortest path to it."
@@ -135,13 +175,15 @@
 (defn check
   "Exhaustively check `machine` within :max-states/:max-depth. Returns
    {:ok? :states :truncated? :vacuity :invariant-violations :dead-ends}.
-   :ok? is false if any of vacuity / invariant-violations / dead-ends is non-empty."
+   :ok? is false if any of vacuity / invariant-violations / dead-ends is non-empty.
+   opts :explorer plugs another IExplorer traversal strategy."
   [machine & [opts]]
-  (let [graph (explore machine (or opts {}))
-        vac   (vacuity machine graph)
-        viols (invariant-violations graph (:invariants machine) opts)
-        goal? (fn [m] (every? (fn [[_ g]] (g m)) (:goals machine)))
-        dead  (when (seq (:goals machine)) (dead-ends graph goal? opts))]
+  (let [explorer (or (:explorer opts) default-explorer)
+        graph    (-explore explorer machine (or opts {}))
+        vac      (vacuity machine graph)
+        viols    (invariant-violations graph (:invariants machine) opts)
+        goal?    (fn [m] (every? (fn [[_ g]] (g m)) (:goals machine)))
+        dead     (when (seq (:goals machine)) (-dead-ends explorer graph goal? opts))]
     {:ok?                  (and (empty? vac) (empty? viols) (empty? dead))
      :states               (count (:states graph))
      :truncated?           (:truncated? graph)

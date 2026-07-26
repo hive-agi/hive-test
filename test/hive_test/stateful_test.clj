@@ -109,6 +109,25 @@
     (is (false? (:ok? r)))
     (is (seq (:vacuity r)))))
 
+(deftest check-plugs-another-explorer
+  (testing "an IExplorer reify observing the traversal is used end to end"
+    (let [calls    (atom [])
+          explorer (reify sf/IExplorer
+                     (-explore [_ m opts]
+                       (swap! calls conj :explore)
+                       (sf/-explore sf/default-explorer m opts))
+                     (-path-to [_ g id]
+                       (sf/-path-to sf/default-explorer g id))
+                     (-co-reachable [_ g goal?]
+                       (sf/-co-reachable sf/default-explorer g goal?))
+                     (-dead-ends [_ g goal? opts]
+                       (swap! calls conj :dead-ends)
+                       (sf/-dead-ends sf/default-explorer g goal? opts)))
+          r        (sf/check (machine {:schedule? true :same-item? true})
+                             {:explorer explorer})]
+      (is (true? (:ok? r)) (sf/report-str r))
+      (is (= [:explore :dead-ends] @calls)))))
+
 (tri/deftest-facets reconciliation-via-trifecta
   hive-test.stateful/check
   {:type          :property
