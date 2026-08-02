@@ -194,6 +194,27 @@
      (prop/for-all [x# ~gen]
                    (~output-rel (~f x#) (~f (~input-transform x#))))))
 
+(defmacro defprop-equiv
+  "Generate a defspec verifying two functions are observationally
+   equivalent: for all generated argument vectors args,
+   (apply f-old args) = (apply f-new args).
+
+   Differential testing: pin a refactor, optimization, or reimplementation
+   against a reference. f-new must agree with f-old on every generated input.
+
+   Arguments:
+   - name:  defspec name
+   - f-old: reference function
+   - f-new: candidate function (must equal f-old on every input)
+   - gen:   generator producing an argument vector applied to both fns
+   - opts:  optional map with :num-tests (default 200)"
+  [name f-old f-new gen & [{:keys [num-tests]
+                            :or {num-tests 200}}]]
+  `(defspec ~name ~num-tests
+     (prop/for-all [args# ~gen]
+                   (= (apply ~f-old args#)
+                      (apply ~f-new args#)))))
+
 (defmacro defprop-commutative
   "Generate a defspec verifying commutativity: f(a, b) = f(b, a)
 
