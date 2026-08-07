@@ -85,3 +85,14 @@
   (gen/fmap set (gen/vector gen/small-integer 0 10))
   (gen/fmap set (gen/vector gen/small-integer 0 10))
   {:num-tests 100})
+
+;; --- join-semilattice facets -------------------------------------------
+
+(def ^:private gen-set
+  (gen/elements [#{} #{:a} #{:b} #{:a :b} #{:c}]))
+
+(props/defprop-associative set-union-associative
+  set/union gen-set)
+
+(props/defprop-join-semilattice set-union
+  set/union #{} gen-set)

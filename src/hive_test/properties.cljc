@@ -209,3 +209,56 @@
      (prop/for-all [a# ~gen-a
                     b# ~gen-b]
                    (= (~f a# b#) (~f b# a#)))))
+
+(defmacro defprop-associative
+  "Generate a defspec verifying associativity: f(f(a, b), c) = f(a, f(b, c))
+
+   Arguments:
+   - name: defspec name
+   - f:    binary function
+   - gen:  generator for the operands
+   - opts: optional map with :num-tests (default 200)"
+  [name f gen & [{:keys [num-tests]
+                  :or {num-tests 200}}]]
+  `(defspec ~name ~num-tests
+     (prop/for-all [a# ~gen
+                    b# ~gen
+                    c# ~gen]
+                   (= (~f (~f a# b#) c#)
+                      (~f a# (~f b# c#))))))
+
+(defmacro defprop-join-semilattice
+  "Generate four defspec forms verifying that `f` is a join-semilattice with
+   identity `bottom`: commutative, associative, idempotent, and an upper bound
+   of both operands.
+
+   The upper-bound facet is stated as ABSORPTION — f(f(a,b), a) = f(a,b) —
+   because the order a join induces is defined by the join itself. Absorption
+   and commutativity are independent; neither alone catches a broken join.
+
+   Arguments:
+   - name:   base defspec name; four vars are emitted with -commutative,
+             -associative, -idempotent and -absorbing suffixes
+   - f:      the binary join
+   - bottom: the identity element
+   - gen:    generator for the operands
+   - opts:   optional map with :num-tests (default 200)"
+  [name f bottom gen & [{:keys [num-tests]
+                         :or {num-tests 200}}]]
+  (let [sym (fn [suffix] (symbol (str name suffix)))]
+    `(do
+       (defspec ~(sym "-commutative") ~num-tests
+         (prop/for-all [a# ~gen b# ~gen]
+                       (= (~f a# b#) (~f b# a#))))
+       (defspec ~(sym "-associative") ~num-tests
+         (prop/for-all [a# ~gen b# ~gen c# ~gen]
+                       (= (~f (~f a# b#) c#) (~f a# (~f b# c#)))))
+       (defspec ~(sym "-idempotent") ~num-tests
+         (prop/for-all [a# ~gen]
+                       (and (= (~f a# a#) a#)
+                            (= (~f ~bottom a#) a#))))
+       (defspec ~(sym "-absorbing") ~num-tests
+         (prop/for-all [a# ~gen b# ~gen]
+                       (let [j# (~f a# b#)]
+                         (and (= (~f j# a#) j#)
+                              (= (~f j# b#) j#))))))))
