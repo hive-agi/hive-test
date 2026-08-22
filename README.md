@@ -1,5 +1,14 @@
 # hive-test
 
+<!-- hive-badges -->
+
+[![Clojars Project](https://img.shields.io/clojars/v/io.github.hive-agi/hive-test.svg)](https://clojars.org/io.github.hive-agi/hive-test)
+[![cljdoc](https://cljdoc.org/badge/io.github.hive-agi/hive-test)](https://cljdoc.org/d/io.github.hive-agi/hive-test/CURRENT)
+[![release](https://github.com/hive-agi/hive-test/actions/workflows/release.yml/badge.svg)](https://github.com/hive-agi/hive-test/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+<!-- /hive-badges -->
+
 Shared testing library for the [hive](https://github.com/hive-agi) ecosystem: a
 **three-facet test generator** (golden + property + mutation), **golden /
 characterization** testing with a swappable store, **mutation** testing,
