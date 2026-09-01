@@ -1,5 +1,5 @@
 {:paths ["src"]
- :deps {org.babashka/cli {:mvn/version "0.12.86"}
+ :deps {org.babashka/cli {:mvn/version "0.12.88"}
         cheshire/cheshire {:mvn/version "6.2.0"}
         nrepl/bencode {:mvn/version "1.2.0"}}
  :tasks
