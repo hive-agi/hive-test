@@ -1,14 +1,30 @@
 {:paths ["src" "resources"]
+
+ ;; The private registry, for the PROVIDED hive-spi coordinate below.
+ :mvn/repos {"hive-gitea" {:url "https://gitea.hive-mcp.com/api/packages/hive-agi/maven"}}
+
+ ;; Deliberately minimal. hive-test lands on the :test classpath of most of the
+ ;; fleet, so anything declared here is inherited by every one of them.
+ ;;
+ ;; PROVIDED, not declared: hive-test.memory.store-contract requires
+ ;; hive-spi.memory.ports. It is a conformance kit for IMemoryStore, so its only
+ ;; consumers are memory-store backends, which cannot exist without hive-spi
+ ;; already on their classpath. Declaring hive-spi here would push it (and
+ ;; hive-dsl and malli with it) onto every hive-test consumer for a namespace
+ ;; almost none of them load. It is in the :dev/:test aliases so hive-test's own
+ ;; suite can compile the kit.
  :deps {org.clojure/clojure {:mvn/version "1.12.5"}
         org.clojure/test.check {:mvn/version "1.1.3"}}
  :aliases
  {:dev {:extra-paths ["dev" "test"]
         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                      nrepl/nrepl {:mvn/version "1.7.0"}
-                     io.github.hive-agi/hive-dsl {:mvn/version "0.5.21"}}}
+                     io.github.hive-agi/hive-dsl {:mvn/version "0.5.21"}
+                     io.github.hive-agi/hive-spi {:mvn/version "0.2.0"}}}
   :test {:extra-paths ["test"]
          :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                      io.github.hive-agi/hive-dsl {:mvn/version "0.5.21"}}
+                      io.github.hive-agi/hive-dsl {:mvn/version "0.5.21"}
+                      io.github.hive-agi/hive-spi {:mvn/version "0.2.0"}}
          :main-opts ["-m" "kaocha.runner"]}
 
   ;; Clojars publishing (see ../hive-build). version = the repo's VERSION file.
