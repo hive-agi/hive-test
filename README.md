@@ -15,7 +15,8 @@ characterization** testing with a swappable store, **mutation** testing,
 reusable **generators**, **property macros**, and a **Kaocha MCP adapter**.
 
 Cross-platform: the core (`trifecta`, `golden`, `mutation`, `properties`) is
-`.cljc` and runs on both Clojure and ClojureScript.
+`.cljc` and runs on Clojure, ClojureScript, and cljw. The native cljw proof
+runs all three `deftrifecta` facets: golden, property, and mutation.
 
 > **Dependency-minimal by design.** hive-test's runtime deps are just Clojure +
 > test.check. It is the foundational lib the rest of the ecosystem tests *with*,
@@ -29,6 +30,28 @@ Add to your `deps.edn` `:test` alias:
 ```clojure
 io.github.hive-agi/hive-test {:git/tag "v0.3.0" :git/sha "763e4bc"}
 ```
+
+### cljw source dependency
+
+cljw loads dependency source rather than Maven JARs. A cljw test suite must
+therefore lay down hive-test's complete source closure:
+
+```clojure
+{:aliases
+ {:test
+  {:extra-paths ["test"]
+   :extra-deps
+   {io.github.hive-agi/hive-test
+    {:git/url "https://github.com/hive-agi/hive-test.git"
+     :git/sha "8c3709610fddf4e915efc30e9eaa55d4bf108b8f"}
+    org.clojure/test.check
+    {:git/url "https://github.com/clojure/test.check.git"
+     :git/sha "4a5258ea9f2b4fb63e3be85f182b008f12c1a476"}}}}}
+```
+
+Inside hive-test itself, `cljw -M:cljw` runs the committed native suite. It
+executes one `.cljc` trifecta through cljw: 100 generated property cases, two
+mutants, and a committed golden snapshot.
 
 ## Worked example
 
