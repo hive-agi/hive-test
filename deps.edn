@@ -28,11 +28,11 @@
         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                      nrepl/nrepl {:mvn/version "1.7.0"}
                      io.github.hive-agi/hive-dsl {:mvn/version "0.5.21"}
-                     io.github.hive-agi/hive-spi {:mvn/version "0.2.0"}}}
+                     io.github.hive-agi/hive-spi {:mvn/version "1.0.0"}}}
   :test {:extra-paths ["test"]
          :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                       io.github.hive-agi/hive-dsl {:mvn/version "0.5.21"}
-                      io.github.hive-agi/hive-spi {:mvn/version "0.2.0"}}
+                      io.github.hive-agi/hive-spi {:mvn/version "1.0.0"}}
          :main-opts ["-m" "kaocha.runner"]}
 
   ;; Clojars publishing (see ../hive-build). version = the repo's VERSION file.
