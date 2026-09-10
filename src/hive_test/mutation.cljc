@@ -11,26 +11,17 @@
    - with-mutation:             temporarily rebind a var to a mutant
 
    How it works:
-   1. Run test assertions against the REAL implementation → must PASS
+   1. Run test assertions against the REAL implementation -> must PASS
    2. Rebind the var-under-test to the MUTANT implementation
-   3. Run the same assertions again (in an isolated reporter) → must FAIL
+   3. Run the same assertions again (in an isolated reporter) -> must FAIL
    4. If the mutant survives (all pass), report that the test has a blind spot
 
    Note: on the JVM this uses alter-var-root, which affects all threads.
    Mutation tests should not run in parallel with tests that use the same
-   var. On ClojureScript (no runtime var roots) the rebind is performed with
-   cljs.core/with-redefs, which is equivalent for the single-threaded target.
-
-   Example:
-     (deftest-mutation-witness enqueue-merge-caught
-       my.ns/enqueue!
-       (fn [a p blocks] (swap! buffers assoc [a p] {:blocks blocks}))
-       (fn []
-         (my.ns/enqueue! \"a\" \"p\" {:x 1})
-         (my.ns/enqueue! \"a\" \"p\" {:y 2})
-         (is (= {:x 1 :y 2} (my.ns/drain! \"a\" \"p\")))))"
+   var."
   #?(:clj  (:require [clojure.test :as t])
-     :cljs (:require [cljs.test :as t :include-macros true]))
+     :cljs (:require [cljs.test :as t :include-macros true])
+     :default (:require [clojure.test :as t]))
   #?(:cljs (:require-macros [hive-test.mutation])))
 
 ;; =============================================================================
@@ -67,9 +58,8 @@
    Captures :pass, :fail, and :error report events. All other events
    (like :begin-test-var) are silently dropped.
 
-   JVM: rebinds clojure.test/report. ClojureScript: cljs.test/report is a
-   multimethod that updates the report counters on the current test env, so
-   we bind a fresh cljs.test env and read its counters back."
+   JVM: rebinds clojure.test/report. ClojureScript and other hosts whose
+   `report` is a multimethod: bind fresh counters and read them back."
   [f]
   #?(:clj
      (let [results (atom {:pass 0 :fail 0 :error 0})]
@@ -86,12 +76,25 @@
      ;; cljs.test/report is a multimethod whose default :fail/:error methods
      ;; both increment the env's :report-counters AND println the failure.
      ;; Bind a fresh env so the counters never reach the outer run, and a
-     ;; no-op *print-fn* so the (expected) mutant failures stay silent —
+     ;; no-op *print-fn* so the (expected) mutant failures stay silent,
      ;; mirroring the JVM branch's fully isolated reporter.
      (binding [t/*current-env*       (t/empty-env)
                cljs.core/*print-fn*  (fn [& _])]
        (f)
        (let [c (:report-counters t/*current-env*)]
+         {:pass  (:pass c 0)
+          :fail  (:fail c 0)
+          :error (:error c 0)}))
+     :default
+     ;; `report` is a multimethod writing to *report-counters* via set!, so a
+     ;; fresh binding isolates the counts. with-out-str swallows the expected
+     ;; mutant failure output.
+     (let [counters (atom nil)]
+       (with-out-str
+         (binding [t/*report-counters* {:pass 0 :fail 0 :error 0}]
+           (f)
+           (reset! counters t/*report-counters*)))
+       (let [c @counters]
          {:pass  (:pass c 0)
           :fail  (:fail c 0)
           :error (:error c 0)}))))

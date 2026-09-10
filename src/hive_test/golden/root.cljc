@@ -34,7 +34,9 @@
 
 (defrecord ClasspathProjectRoot []
   ProjectRoot
-  (-root-for [_ test-ns] #?(:clj (ns-root test-ns) :cljs (do test-ns nil))))
+  (-root-for [_ test-ns] #?(:clj (ns-root test-ns)
+                            :cljs (do test-ns nil)
+                            :default (do test-ns nil))))
 
 (def default-resolver
   "Classpath walk-up ProjectRoot — the default anchoring strategy."
@@ -42,7 +44,8 @@
 
 (defn anchor
   "Resolve a relative golden `path` against `test-ns`'s project root via
-   `resolver`. Absolute paths and cljs pass through unchanged."
+   `resolver`. Absolute paths and hosts without a filesystem port pass through
+   unchanged."
   [resolver test-ns path]
   #?(:clj (let [f (File. ^String path)]
             (if (.isAbsolute f)
@@ -50,4 +53,5 @@
               (if-let [r (-root-for resolver test-ns)]
                 (.getPath (File. ^File r ^String path))
                 path)))
-     :cljs (do resolver test-ns path)))
+     :cljs (do resolver test-ns path)
+     :default (do resolver test-ns path)))

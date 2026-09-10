@@ -44,11 +44,24 @@
   ;; fully-qualified symbols resolve identically on clj and cljs — no &env
   ;; dispatch needed for them. The aliases below are required only so those
   ;; syntax-quotes resolve at compile time on both platforms.
-  (:require [clojure.test.check.clojure-test :as tc]
-            [clojure.test.check.properties :as prop]
-            [hive-test.golden :as golden]
-            [hive-test.mutation :as mut]
-            [hive-test.stateful :as sf])
+  ;; :default must stay LAST: it matches every platform, so a branch after it
+  ;; is unreachable. Hosts without test.check land there and get hive-test's
+  ;; portable subset; the emitted symbols are fully qualified either way.
+  #?(:clj (:require [clojure.test.check.clojure-test :as tc]
+                    [clojure.test.check.properties :as prop]
+                    [hive-test.golden :as golden]
+                    [hive-test.mutation :as mut]
+                    [hive-test.stateful :as sf])
+     :cljs (:require [clojure.test.check.clojure-test :as tc]
+                     [clojure.test.check.properties :as prop]
+                     [hive-test.golden :as golden]
+                     [hive-test.mutation :as mut]
+                     [hive-test.stateful :as sf])
+     :default (:require [hive-test.tcheck.clojure-test :as tc]
+                        [hive-test.tcheck.properties :as prop]
+                        [hive-test.golden :as golden]
+                        [hive-test.mutation :as mut]
+                        [hive-test.stateful :as sf]))
   ;; Self-require macros so cljs consumers use deftest-facets / deftrifecta
   ;; via plain :require/:refer.
   #?(:cljs (:require-macros [hive-test.trifecta])))

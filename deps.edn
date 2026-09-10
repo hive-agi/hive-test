@@ -38,4 +38,12 @@
   ;; Clojars publishing (see ../hive-build). version = the repo's VERSION file.
   :build
   {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.11"}}
-   :ns-default hive-build.api}}}
+   :ns-default hive-build.api}
+  :cljrs {:extra-paths ["test-cljrs"]
+                  ;; cljrs runs this suite natively:
+                  ;;   cljrs test --src-path ./src --src-path ./test-cljrs
+                  ;; It needs no test.check coordinate: on a host without test.check the
+                  ;; :default reader-conditional branch reaches hive-test.tcheck, the
+                  ;; portable subset shipped in src. This alias runs the same suite on
+                  ;; the JVM against the REAL test.check, so the two can be compared.
+                  :main-opts ["-m" "hive-test.cljrs-runner"]}}}
