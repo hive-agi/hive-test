@@ -13,7 +13,10 @@
                      [clojure.test.check.generators :as gen])
      :cljs (:require [clojure.test.check.clojure-test :refer-macros [defspec]]
                      [clojure.test.check.properties :as prop :include-macros true]
-                     [clojure.test.check.generators :as gen])))
+                     [clojure.test.check.generators :as gen])
+     :default (:require [hive-test.tcheck.clojure-test :refer [defspec]]
+                        [hive-test.tcheck.properties :as prop]
+                        [hive-test.tcheck.generators :as gen])))
 
 (defmacro defprops-monad
   "Generate three defspec forms verifying monad laws:

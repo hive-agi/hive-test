@@ -15,8 +15,9 @@ characterization** testing with a swappable store, **mutation** testing,
 reusable **generators**, **property macros**, and a **Kaocha MCP adapter**.
 
 Cross-platform: the core (`trifecta`, `golden`, `mutation`, `properties`) is
-`.cljc` and runs on Clojure, ClojureScript, and cljw. The native cljw proof
-runs all three `deftrifecta` facets: golden, property, and mutation.
+`.cljc` and runs on Clojure, ClojureScript, cljw, and cljrs. Both the cljw and
+the cljrs proof run all three `deftrifecta` facets: golden, property, and
+mutation.
 
 > **Dependency-minimal by design.** hive-test's runtime deps are just Clojure +
 > test.check. It is the foundational lib the rest of the ecosystem tests *with*,
@@ -52,6 +53,34 @@ therefore lay down hive-test's complete source closure:
 Inside hive-test itself, `cljw -M:cljw` runs the committed native suite. It
 executes one `.cljc` trifecta through cljw: 100 generated property cases, two
 mutants, and a committed golden snapshot.
+
+### cljrs
+
+cljrs resolves only the `:rust` and `:default` reader-conditional branches, so
+a `#?(:clj ... :cljs ...)` form yields nothing there. Every conditional in the
+core therefore carries a `:default` branch, written last, since `:default`
+matches every platform and shadows anything after it.
+
+cljrs has no test.check. The `:default` branch reaches `hive-test.tcheck`
+instead, a portable subset shipped in `src`: a splittable LCG rng, the
+generator combinators the macros emit, `for-all`, `quick-check` and `defspec`.
+It does not model shrinking; a failure reports the input that produced it and
+the seed that reproduces it. JVM and ClojureScript are untouched and keep the
+real test.check.
+
+```sh
+# native
+cljrs test --src-path ./src --src-path ./test-cljrs
+
+# the same suite on the JVM, against the real test.check
+clj -M:cljrs
+```
+
+Both run one `.cljc` trifecta: 100 generated property cases, two mutants, and a
+committed golden snapshot. Where cljrs lacks a host facility the `:default`
+branch degrades explicitly rather than silently: golden paths are not anchored
+to a project root, and a snapshot cljrs writes is `pr-str` on one line rather
+than pretty-printed, because there is no `clojure.pprint` and no `mkdirs`.
 
 ## Worked example
 

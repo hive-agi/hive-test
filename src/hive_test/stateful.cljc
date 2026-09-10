@@ -28,7 +28,8 @@
 
 (def ^:private empty-queue
   #?(:clj  clojure.lang.PersistentQueue/EMPTY
-     :cljs cljs.core/PersistentQueue.EMPTY))
+     :cljs cljs.core/PersistentQueue.EMPTY
+     :default (queue)))
 
 ;; ── pure exploration ─────────────────────────────────────────────────────────
 

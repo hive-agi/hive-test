@@ -16,7 +16,10 @@
                      [hive-test.golden.root :as root])
      :cljs (:require [cljs.test :as t :include-macros true]
                      [hive-test.golden.store :as store]
-                     [hive-test.golden.root :as root]))
+                     [hive-test.golden.root :as root])
+     :default (:require [clojure.test :as t]
+                        [hive-test.golden.store :as store]
+                        [hive-test.golden.root :as root]))
   #?(:cljs (:require-macros [hive-test.golden])))
 
 (def ^:dynamic *store*

@@ -9,7 +9,8 @@
                      [clojure.string :as str]
                      [clojure.pprint :as pp])
      :cljs (:require [cljs.reader :as reader]
-                     [cljs.pprint :as pp]))
+                     [cljs.pprint :as pp])
+     :default (:require [clojure.edn :as edn]))
   #?(:clj (:import [java.io File])))
 
 (defprotocol GoldenStore
@@ -35,7 +36,9 @@
   (-read [_ path]
     #?(:clj  (when-let [src (resolve-src path)] (edn/read-string (slurp src)))
        :cljs (when (.existsSync fs path)
-               (reader/read-string (.readFileSync fs path "utf8")))))
+               (reader/read-string (.readFileSync fs path "utf8")))
+       :default (try (edn/read-string (slurp path))
+                     (catch Exception _ nil))))
   (-write! [_ path value]
     #?(:clj  (let [f (File. ^String path)]
                (.mkdirs (.getParentFile f))
@@ -45,10 +48,15 @@
                (when-not (.existsSync fs dir)
                  (.mkdirSync fs dir #js {:recursive true}))
                (.writeFileSync fs path (with-out-str (pp/pprint value)))
-               value)))
+               value)
+       ;; No pretty-printer and no mkdirs on this host: the directory must
+       ;; already exist, and the snapshot is written on one line.
+       :default (do (spit path (pr-str value)) value)))
   (-exists? [_ path]
     #?(:clj  (some? (resolve-src path))
-       :cljs (.existsSync fs path))))
+       :cljs (.existsSync fs path)
+       :default (try (some? (slurp path))
+                     (catch Exception _ false)))))
 
 (defrecord AtomGoldenStore [state]
   GoldenStore
