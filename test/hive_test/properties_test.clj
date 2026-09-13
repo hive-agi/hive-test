@@ -2,6 +2,7 @@
   "Tests for property macros using a simple Option-like monad."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.set :as set]
+            [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :refer [defspec]]
@@ -96,3 +97,25 @@
 
 (props/defprop-join-semilattice set-union
   set/union #{} gen-set)
+
+;; --- Equivalence property ---
+;; Passing pair: inc and (+ 1 x) agree on every integer argument.
+
+(props/defprop-equiv inc-plus-one-equiv
+  inc
+  (fn [x] (+ 1 x))
+  (gen/tuple gen/small-integer)
+  {:num-tests 100})
+
+;; Failing pair: inc and dec must NOT be reported equivalent. defprop-equiv
+;; expands to (defspec ...) over the same prop/for-all body checked here, so
+;; asserting quick-check reports :pass? false guards the failure-detection
+;; contract without committing a red defspec to the suite.
+(deftest defprop-equiv-detects-inequivalence
+  (testing "a non-equivalent pair (inc vs dec) fails the equivalence check"
+    (let [result (tc/quick-check
+                  100
+                  (prop/for-all [args (gen/tuple gen/small-integer)]
+                    (= (apply inc args)
+                       (apply dec args))))]
+      (is (false? (:pass? result))))))
