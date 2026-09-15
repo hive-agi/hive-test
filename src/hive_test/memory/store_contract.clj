@@ -522,18 +522,33 @@
 ;; 15. Search similar: behavioral test
 ;; =============================================================================
 
+(def ^:private search-target-content
+  "Content of the one entry a search query is aimed at. Shares no word with
+   `search-distractor-contents`, nor with the tags `make-entry` assigns."
+  "Clojure favours functional programming over mutable state")
+
+(def ^:private search-distractor-contents
+  ["Sourdough bread needs a patient overnight rise"
+   "Tidal currents follow lunar gravity along rocky coastlines"])
+
 (deftest test-search-similar-behavioral
   (let [store (fresh-store)]
     (when (ports/supports-semantic-search? store)
-      (let [_       (ports/add-entry! store
-                      (make-entry {:content "Clojure is a functional programming language"}))
-            _       (ports/add-entry! store
-                      (make-entry {:content "Python is popular for data science"}))
-            results (ports/search-similar store "functional programming" {:limit 5})]
+      (let [[d1 d2] search-distractor-contents
+            target  (make-entry {:content search-target-content})
+            _       (ports/add-entry! store (make-entry {:content d1}))
+            _       (ports/add-entry! store target)
+            _       (ports/add-entry! store (make-entry {:content d2}))
+            results (ports/search-similar store search-target-content {:limit 5})]
         (testing "search-similar returns a collection"
           (is (sequential? results)))
         (testing "search-similar respects :limit"
-          (is (<= (count results) 5)))))))
+          (is (<= (count results) 5)))
+        (testing "the entry whose content IS the query ranks first"
+          (is (= (:id target) (:id (first results)))
+              (str "search-similar did not rank the entry matching the query "
+                   "first. Expected " (:id target) ", got ids "
+                   (mapv :id results))))))))
 
 ;; =============================================================================
 ;; 16. Staleness: propagate-staleness! does not throw

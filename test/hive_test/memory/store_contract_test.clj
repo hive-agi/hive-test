@@ -158,6 +158,63 @@
   (reset-store! [_] (ports/reset-store! inner)))
 
 ;; =============================================================================
+;; Stores that violate the search clause
+;; =============================================================================
+
+(defn- ->ciphertext
+  "Reversible stand-in for encryption: base64 of the UTF-8 bytes."
+  [s]
+  (.encodeToString (java.util.Base64/getEncoder) (.getBytes (str s) "UTF-8")))
+
+(defn- <-ciphertext [s]
+  (String. (.decode (java.util.Base64/getDecoder) (str s)) "UTF-8"))
+
+(defn- open-entry [e]
+  (when e (update e :content <-ciphertext)))
+
+(defrecord CiphertextIndexStore [inner]
+  ports/IMemoryStore
+  (connect! [_ config] (ports/connect! inner config))
+  (disconnect! [_] (ports/disconnect! inner))
+  (connected? [_] (ports/connected? inner))
+  (health-check [_] (ports/health-check inner))
+  (add-entry! [_ entry] (ports/add-entry! inner (update entry :content ->ciphertext)))
+  (get-entry [_ id] (open-entry (ports/get-entry inner id)))
+  (update-entry! [_ id updates]
+    (open-entry (ports/update-entry! inner id (cond-> updates
+                                                (contains? updates :content)
+                                                (update :content ->ciphertext)))))
+  (delete-entry! [_ id] (ports/delete-entry! inner id))
+  (query-entries [_ opts] (mapv open-entry (ports/query-entries inner opts)))
+  (search-similar [_ q opts] (mapv open-entry (ports/search-similar inner q opts)))  ; the violation
+  (supports-semantic-search? [_] true)
+  (cleanup-expired! [_] (ports/cleanup-expired! inner))
+  (entries-expiring-soon [_ d opts] (mapv open-entry (ports/entries-expiring-soon inner d opts)))
+  (find-duplicate [_ t h opts] (ports/find-duplicate inner t h opts))
+  (store-status [_] (ports/store-status inner))
+  (reset-store! [_] (ports/reset-store! inner)))
+
+(defrecord UnrankedSearchStore [inner]
+  ports/IMemoryStore
+  (connect! [_ config] (ports/connect! inner config))
+  (disconnect! [_] (ports/disconnect! inner))
+  (connected? [_] (ports/connected? inner))
+  (health-check [_] (ports/health-check inner))
+  (add-entry! [_ entry] (ports/add-entry! inner entry))
+  (get-entry [_ id] (ports/get-entry inner id))
+  (update-entry! [_ id updates] (ports/update-entry! inner id updates))
+  (delete-entry! [_ id] (ports/delete-entry! inner id))
+  (query-entries [_ opts] (ports/query-entries inner opts))
+  (search-similar [_ _q opts]                                ; the violation
+    (ports/query-entries inner {:limit (or (:limit opts) 10)}))
+  (supports-semantic-search? [_] true)
+  (cleanup-expired! [_] (ports/cleanup-expired! inner))
+  (entries-expiring-soon [_ d opts] (ports/entries-expiring-soon inner d opts))
+  (find-duplicate [_ t h opts] (ports/find-duplicate inner t h opts))
+  (store-status [_] (ports/store-status inner))
+  (reset-store! [_] (ports/reset-store! inner)))
+
+;; =============================================================================
 ;; Isolated runner
 ;; =============================================================================
 
@@ -222,6 +279,24 @@
     (testing "test-add-delete-get reports a failure when delete is a no-op"
       (is (failed? result)
           "the kit passed a store whose delete-entry! does nothing, so it is not testing deletion"))))
+
+(deftest kit-catches-a-search-over-ciphertext
+  (let [test-search @(ns-resolve 'hive-test.memory.store-contract
+                                 'test-search-similar-behavioral)]
+    (testing "the ciphertext store is otherwise conforming: roundtrip still passes"
+      (is (not (failed? (run-isolated #(->CiphertextIndexStore (->stub))
+                                      @(ns-resolve 'hive-test.memory.store-contract
+                                                   'test-add-get-roundtrip))))))
+    (testing "test-search-similar-behavioral fails when the index holds ciphertext"
+      (is (failed? (run-isolated #(->CiphertextIndexStore (->stub)) test-search))
+          "the kit passed a store that searches ciphertext, so it only checks result shape"))))
+
+(deftest kit-catches-a-search-that-ignores-the-query
+  (let [test-search @(ns-resolve 'hive-test.memory.store-contract
+                                 'test-search-similar-behavioral)]
+    (testing "test-search-similar-behavioral fails when search returns entries unranked"
+      (is (failed? (run-isolated #(->UnrankedSearchStore (->stub)) test-search))
+          "the kit passed a store whose search ignores the query text"))))
 
 ;; =============================================================================
 ;; 3. Skipping is explicit, not accidental
