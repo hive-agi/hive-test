@@ -27,17 +27,17 @@
   :dev {:extra-paths ["dev" "test"]
         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                      nrepl/nrepl {:mvn/version "1.7.0"}
-                     io.github.hive-agi/hive-dsl {:mvn/version "0.5.28"}
+                     io.github.hive-agi/hive-dsl {:mvn/version "0.5.29"}
                      io.github.hive-agi/hive-spi {:mvn/version "1.1.1"}}}
   :test {:extra-paths ["test"]
          :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                      io.github.hive-agi/hive-dsl {:mvn/version "0.5.28"}
+                      io.github.hive-agi/hive-dsl {:mvn/version "0.5.29"}
                       io.github.hive-agi/hive-spi {:mvn/version "1.1.1"}}
          :main-opts ["-m" "kaocha.runner"]}
 
   ;; Clojars publishing (see ../hive-build). version = the repo's VERSION file.
   :build
-  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.18"}}
+  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.19"}}
    :ns-default hive-build.api}
   :cljrs {:extra-paths ["test-cljrs"]
                   ;; cljrs runs this suite natively:
