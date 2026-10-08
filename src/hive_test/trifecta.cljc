@@ -372,6 +372,7 @@
    Internal — maps the convenience API to the facet registry."
   [{:keys [golden-path golden-expr cases xf apply?
            gen pred idempotent? property-type num-tests
+           decode-fn required-keys
            mutations assert] :as spec}]
   (filterv
     some?
@@ -387,6 +388,8 @@
          pred           (assoc :pred pred)
          idempotent?    (assoc :idempotent? true)
          property-type  (assoc :property-type property-type)
+         decode-fn      (assoc :decode-fn decode-fn)
+         required-keys  (assoc :required-keys required-keys)
          apply?         (assoc :apply? apply?)))
 
      (when mutations
