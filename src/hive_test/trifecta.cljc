@@ -18,6 +18,8 @@
        :totality            :cases              :golden-derived
        :pred                :cases-fn           :assert
        :idempotent          :expr               (downstream...)
+       :oracle
+       :metamorphic
        (downstream...)      (downstream...)
 
    Extension points (Open/Closed):
@@ -257,6 +259,37 @@
          (let [result# (~var-sym v#)]
            (every? #(contains? result# %) ~required-keys))))))
 
+(defmethod emit-property :oracle
+  ;; Reference oracle: the subject must agree with an independent, simpler
+  ;; (usually slower) implementation over the generator. Requires :oracle in
+  ;; spec, a fn of the same arity. With :apply? the generator yields arg
+  ;; vectors and both sides are applied.
+  [_ {:keys [gen oracle apply? num-tests]} {:keys [name var-sym]}]
+  (let [p-name (symbol (str name "-property"))
+        nt (or num-tests 200)]
+    (if apply?
+      `(tc/defspec ~p-name ~nt
+         (prop/for-all [args# ~gen]
+           (= (apply ~var-sym args#) (apply ~oracle args#))))
+      `(tc/defspec ~p-name ~nt
+         (prop/for-all [v# ~gen]
+           (= (~var-sym v#) (~oracle v#)))))))
+
+(defmethod emit-property :metamorphic
+  ;; Metamorphic relation: transforming the input relates the outputs.
+  ;; Requires :transform (input -> input) and :relation
+  ;; (fn [out out-of-transformed] -> bool), defaulting to =. With the default
+  ;; this is invariance ("adding an unrelated usage is a no-op"); a relation
+  ;; such as clojure.set/subset? expresses subset/relational laws
+  ;; ("qualified refs are a subset of bare refs").
+  [_ {:keys [gen transform relation num-tests]} {:keys [name var-sym]}]
+  (let [p-name (symbol (str name "-property"))
+        nt (or num-tests 200)
+        rel (or relation `=)]
+    `(tc/defspec ~p-name ~nt
+       (prop/for-all [v# ~gen]
+         (boolean (~rel (~var-sym v#) (~var-sym (~transform v#))))))))
+
 ;; =============================================================================
 ;; Built-in: Mutation Strategies
 ;; =============================================================================
@@ -372,7 +405,7 @@
    Internal — maps the convenience API to the facet registry."
   [{:keys [golden-path golden-expr cases xf apply?
            gen pred idempotent? property-type num-tests
-           decode-fn required-keys
+           decode-fn required-keys oracle transform relation
            mutations assert] :as spec}]
   (filterv
     some?
@@ -390,6 +423,9 @@
          property-type  (assoc :property-type property-type)
          decode-fn      (assoc :decode-fn decode-fn)
          required-keys  (assoc :required-keys required-keys)
+         oracle         (assoc :oracle oracle)
+         transform      (assoc :transform transform)
+         relation       (assoc :relation relation)
          apply?         (assoc :apply? apply?)))
 
      (when mutations
@@ -422,6 +458,9 @@
      :pred          — predicate (default: totality)
      :idempotent?   — if true, tests f(f(x)) = f(x)
      :property-type — explicit dispatch key for emit-property
+     :oracle        — reference impl for :property-type :oracle (f x) = (oracle x)
+     :transform     — input transform for :property-type :metamorphic
+     :relation      — (fn [out out-of-transformed]) for :metamorphic (default =)
      :num-tests     — iterations (default: 200)
 
      ;; Mutation facet
