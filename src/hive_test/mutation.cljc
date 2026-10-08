@@ -99,6 +99,17 @@
           :fail  (:fail c 0)
           :error (:error c 0)}))))
 
+(defn ->subject-sym
+  "Normalize a mutation subject to the bare qualified symbol used for codegen.
+   Accepts a bare symbol `ns/fn` or a var literal `#'ns/fn`, which the reader
+   hands a macro as the form `(var ns/fn)`. Without this, a var literal would
+   expand to `(var (var ns/fn))`. Shared with hive-test.trifecta, which
+   requires this namespace."
+  [subject]
+  (if (and (seq? subject) (= 'var (first subject)))
+    (second subject)
+    subject))
+
 (defmacro with-mutation
   "Execute body with var-sym temporarily rebound to mutant-fn.
    Restores the original binding in finally, even on exception.
@@ -131,8 +142,11 @@
    - name:      test name (symbol)
    - var-sym:   fully qualified var to mutate
    - mutant-fn: the broken implementation to test against
-   - test-fn:   zero-arg function containing assertions (is, testing, etc.)"
-  [name var-sym mutant-fn test-fn]
+   - test-fn:   zero-arg function containing assertions (is, testing, etc.)
+
+   The subject may be a bare qualified symbol or a var literal `#'ns/fn`."
+  [name subject mutant-fn test-fn]
+  (let [var-sym (->subject-sym subject)]
   (if (:ns &env)
     `(cljs.test/deftest ~name
        (cljs.test/testing (str "mutation witness: " '~var-sym)
@@ -167,7 +181,7 @@
              (t/is (pos? (+ (:fail results#) (:error results#)))
                    (str "MUTATION SURVIVED: mutant of " '~var-sym
                         " passed all " (:pass results#) " assertions."
-                        " Tests have a blind spot for this mutation."))))))))
+                        " Tests have a blind spot for this mutation.")))))))))
 
 (defmacro deftest-mutations
   "Verify multiple mutations of the same var are all caught.
@@ -182,6 +196,8 @@
    - mutations: vector of [label mutant-fn] pairs
    - test-fn:   zero-arg function containing assertions
 
+   The subject may be a bare qualified symbol or a var literal `#'ns/fn`.
+
    Example:
      (deftest-mutations enqueue-all-mutations-caught
        my.ns/enqueue!
@@ -192,7 +208,8 @@
          (my.ns/enqueue! \"a\" \"p\" {:x 1})
          (my.ns/enqueue! \"a\" \"p\" {:y 2})
          (is (= {:x 1 :y 2} (my.ns/drain! \"a\" \"p\")))))"
-  [name var-sym mutations test-fn]
+  [name subject mutations test-fn]
+  (let [var-sym (->subject-sym subject)]
   (if (:ns &env)
     `(cljs.test/deftest ~name
        (cljs.test/testing (str "mutation suite: " '~var-sym)
@@ -229,4 +246,4 @@
                                     (alter-var-root (var ~var-sym) (constantly original#))))))]
                (t/is (pos? (+ (:fail results#) (:error results#)))
                      (str "MUTATION SURVIVED: '" label#
-                          "' passed all " (:pass results#) " assertions.")))))))))
+                          "' passed all " (:pass results#) " assertions."))))))))))

@@ -2,7 +2,9 @@
   "Tests for mutation testing macros.
    Uses a simple accumulator to demonstrate that mutations are caught."
   (:require [clojure.test :refer [deftest is testing]]
-            [hive-test.mutation :as mut]))
+            [clojure.test.check.generators :as gen]
+            [hive-test.mutation :as mut]
+            [hive-test.trifecta :refer [deftrifecta]]))
 
 ;; --- Test subject: a simple merge-accumulator ---
 
@@ -72,3 +74,37 @@
         (is (= :mutant (accumulate! {}))))
       (is (= original accumulate!)
           "original fn restored after with-mutation"))))
+
+;; --- Subject normalization: #'var literal accepted like a bare symbol ---
+
+(deftrifecta subject-sym-normalization
+  hive-test.mutation/->subject-sym
+  {:golden-path "test/golden/mutation/subject-sym.edn"
+   :cases       {:bare-qualified   'my.ns/f
+                 :var-literal      '(var my.ns/f)
+                 :bare-unqualified 'f
+                 :other-list       '(foo my.ns/f)}
+   :gen         gen/symbol
+   :pred        symbol?
+   :mutations   [["no-unwrap"  (fn [s] s)]
+                 ["always-nil" (fn [_] nil)]
+                 ["take-first" (fn [s] (if (seq? s) (first s) s))]]})
+
+(mut/deftest-mutation-witness accumulate-merge-caught-var-literal
+  #'hive-test.mutation-test/accumulate!
+  (fn [kv-map] (reset! acc kv-map))
+  (fn []
+    (reset! acc {})
+    (accumulate! {:a 1})
+    (accumulate! {:b 2})
+    (is (= {:a 1 :b 2} (drain-acc!)))))
+
+(mut/deftest-mutations accumulate-mutations-caught-var-literal
+  #'hive-test.mutation-test/accumulate!
+  [["assoc-overwrites" (fn [kv-map] (reset! acc kv-map))]
+   ["drops-everything" (fn [_] nil)]]
+  (fn []
+    (reset! acc {})
+    (accumulate! {:x 1})
+    (accumulate! {:y 2})
+    (is (= {:x 1 :y 2} (drain-acc!)))))

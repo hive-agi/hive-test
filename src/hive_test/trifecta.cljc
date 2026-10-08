@@ -335,11 +335,11 @@
 
 (defn- ->subject-sym
   "Normalize a trifecta subject to the bare qualified symbol used for codegen.
-   Accepts a bare symbol `ns/fn` or a var literal `#'ns/fn`."
+   Accepts a bare symbol `ns/fn` or a var literal `#'ns/fn`.
+   Delegates to hive-test.mutation/->subject-sym so the mutation macros and
+   trifecta share one normalization."
   [subject]
-  (if (and (seq? subject) (= 'var (first subject)))
-    (second subject)
-    subject))
+  (mut/->subject-sym subject))
 
 ;; =============================================================================
 ;; Public API: deftest-facets (power-user — explicit facet specs)
