@@ -4,7 +4,8 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.generators :as gen]
-            [hive-test.golden.root :as root])
+            [hive-test.golden.root :as root]
+            [hive-test.trifecta :refer [deftrifecta]])
   (:import [java.io File]))
 
 (defn- fixed-root
@@ -33,6 +34,33 @@
     (let [r (root/-root-for root/default-resolver 'hive-test.golden.root)]
       (is (some? r))
       (is (.exists (File. ^File r "deps.edn"))))))
+
+(deftest cwd-resolver-finds-hive-test-root
+  (testing "the cwd walk-up resolver (the cljw fallback) locates this repo's root"
+    (let [r (root/-root-for (root/->CwdProjectRoot) 'any.ns)]
+      (is (some? r))
+      (is (.exists (File. ^File r "deps.edn"))))))
+
+(defn first-root
+  "Subject: the root path a FirstOfProjectRoot over fixed stubs `dirs` yields."
+  [dirs]
+  (some-> (root/-root-for (root/->FirstOfProjectRoot (mapv fixed-root dirs)) 'n)
+          (.getPath)))
+
+(deftrifecta first-of-project-root
+  hive-test.golden.root-test/first-root
+  {:golden-path "test/golden/root/first-of-project-root.edn"
+   :cases {:empty      []
+           :all-nil    [nil nil]
+           :first-wins ["/a" "/b"]
+           :skips-nil  [nil "/b" "/c"]}
+   :gen (gen/vector (gen/one-of [(gen/return nil)
+                                 (gen/fmap #(str "/" %) gen/string-alphanumeric)])
+                    0 4)
+   :pred #(or (nil? %) (string? %))
+   :num-tests 100
+   :mutations [["always-nil" (constantly nil)]
+               ["last-wins" (fn [dirs] (some-> (last (remove nil? dirs)) (File.) (.getPath)))]]})
 
 (defspec anchor-absolute-is-fixpoint 100
   (prop/for-all [seg (gen/such-that seq gen/string-alphanumeric)]
