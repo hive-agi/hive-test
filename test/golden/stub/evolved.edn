@@ -1,0 +1,5 @@
+{:a {:implements? true
+     :old [:found :a]
+     :other-arity :fallback
+     :failure {:stub StubV2 :protocol hive-test.stub-test/StoreV2 :method put-next}
+     :calls [[:fetch :a] [:fetch :a :fallback] [:put :a 42]]}}
