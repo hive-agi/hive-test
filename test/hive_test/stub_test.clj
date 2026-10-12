@@ -2,14 +2,14 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.test.check.generators :as gen]
             [hive-test.stub :refer [defstub]]
+            [hive-test.stub-port :as port]
             [hive-test.trifecta :refer [deftrifecta]]))
 
 (defprotocol StoreV1
   (fetch [this key]))
 
-;; The protocol's next version adds an arity and a method. JVM interface
-;; classes cannot be redefined in-process, so give the evolved version a new
-;; name; both stubs are expanded from their respective live protocol Vars.
+;; Static fixtures cover decorators; the scratch namespace below exercises
+;; actual evolution of one protocol.
 (defprotocol StoreV2
   (fetch-next [this key] [this key fallback])
   (put-next [this key value]))
@@ -73,6 +73,60 @@
                                   {:missing (fn [_] nil)})))
                 nil
                 (catch clojure.lang.Compiler$CompilerException e
-                  (ex-cause e)))]
+                  (ex-cause e))
+                (catch clojure.lang.ExceptionInfo e e))]
     (is (instance? clojure.lang.ExceptionInfo error))
-    (is (= 'missing (:method (ex-data error))))))
+    (is (= 'missing (:method (ex-data error))))
+    (is (= '[fetch-next put-next] (:valid-methods (ex-data error))))
+    (is (every? #(.contains (ex-message error) (str %))
+                '[missing fetch-next put-next]))))
+
+(defstub AliasedStub port/ExternalPort
+  {:lookup (fn [this key & [fallback]]
+             (let [override-map [:receiver (instance? AliasedStub this)]]
+               [override-map key fallback]))})
+
+(deftest aliased-external-port-and-override-hygiene
+  (let [stub (->AliasedStub)]
+    (is (satisfies? port/ExternalPort stub))
+    (is (= [[:receiver true] :key nil] (port/lookup stub :key)))
+    (is (= [[:receiver true] :key :otherwise]
+           (port/lookup stub :key :otherwise)))
+    (is (= {:stub 'AliasedStub :protocol 'hive-test.stub-port/ExternalPort
+            :method 'persist}
+           (try (port/persist stub :key 42)
+                (catch clojure.lang.ExceptionInfo e (ex-data e)))))))
+
+(deftest same-protocol-reexpansion
+  "A record expanded before protocol redefinition does NOT satisfy the new
+   protocol object; re-expanding the unchanged defstub form repairs the stub."
+  (let [scratch-name (symbol (str "hive-test.stub-evolution-" (gensym)))
+        scratch (create-ns scratch-name)
+        stub-form '(hive-test.stub/defstub EvolvingStub EvolvingPort
+                     {:fetch (fn [this key] [:old (some? this) key])})]
+    (try
+      (binding [*ns* scratch]
+        (refer 'clojure.core)
+        (require 'hive-test.stub)
+        (eval '(defprotocol EvolvingPort (fetch [this key])))
+        (eval stub-form)
+        (let [old ((var-get (ns-resolve scratch '->EvolvingStub)))]
+          (is ((var-get (ns-resolve scratch 'satisfies?))
+               (var-get (ns-resolve scratch 'EvolvingPort)) old))
+          (eval '(defprotocol EvolvingPort
+                   (fetch [this key])
+                   (added [this key])))
+          (let [new-protocol (var-get (ns-resolve scratch 'EvolvingPort))]
+            (is (not (satisfies? new-protocol old)))
+            (eval stub-form)
+            (let [fresh ((var-get (ns-resolve scratch '->EvolvingStub)))
+                  fetch-fn (var-get (ns-resolve scratch 'fetch))
+                  added-fn (var-get (ns-resolve scratch 'added))]
+              (is (satisfies? new-protocol fresh))
+              (is (= [:old true :key] (fetch-fn fresh :key)))
+              (is (= {:stub 'EvolvingStub
+                      :protocol (symbol (str scratch-name) "EvolvingPort")
+                      :method 'added}
+                     (try (added-fn fresh :key)
+                          (catch clojure.lang.ExceptionInfo e (ex-data e)))))))))
+      (finally (remove-ns scratch-name)))))

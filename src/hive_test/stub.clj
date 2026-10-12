@@ -3,14 +3,15 @@
    Var at macro expansion time; recompile the stub after changing the protocol.")
 
 (defmacro defstub
-  "Define a fieldless record implementing every arity in the protocol Var's
-   :sigs. Overrides are a literal map from method keyword (or symbol) to a
-   function expression, called with the receiver and method arguments.
+  "JVM Clojure only: define a fieldless record implementing every arity in the
+   protocol Var's :sigs. Overrides are a literal map from method keyword (or
+   symbol) to a function expression, called with the receiver and arguments.
 
    Default policy: no return-shape metadata is inferred. Every unoverridden
    method throws ex-info with :stub, :protocol and :method; no implicit nil
-   (or fabricated value) can mask an unhandled call. Override every method
-   requiring a useful result. The zero-argument record constructor is ->Name."
+   can mask an unhandled call. Override methods requiring a useful result.
+   The zero-argument record constructor is ->Name. After protocol redefinition,
+   re-expand the stub: old records do not implement the new protocol object."
   [stub protocol & [overrides]]
   (let [v (resolve protocol)
         definition (when (var? v) @v)
@@ -23,13 +24,15 @@
       (throw (ex-info "defstub overrides must be a literal map keyed by method name"
                       {:stub stub :protocol protocol :overrides overrides})))
     (let [methods (set (map (comp symbol name) (keys sigs)))
+          valid-methods (vec (sort methods))
           override-map (into {} (map (fn [[k f]] [(symbol (name k)) f]) overrides))
           unknown (seq (remove methods (keys override-map)))
           protocol-name (symbol (str (ns-name (:ns (meta v)))) (str (:name (meta v))))]
       (when unknown
-        (throw (ex-info (str "Unknown defstub override for " protocol ": " (first unknown))
+        (throw (ex-info (str "Unknown defstub override for " protocol ": " (first unknown)
+                             "; valid methods: " valid-methods)
                         {:stub stub :protocol protocol :method (first unknown)
-                         :unknown unknown})))
+                         :unknown unknown :valid-methods valid-methods})))
       `(defrecord ~stub []
          ~protocol
          ~@(for [[method {:keys [arglists]}] sigs
