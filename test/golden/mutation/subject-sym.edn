@@ -1,0 +1,4 @@
+{:bare-qualified my.ns/f,
+ :bare-unqualified f,
+ :other-list (foo my.ns/f),
+ :var-literal my.ns/f}

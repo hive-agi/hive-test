@@ -38,9 +38,31 @@
                             :cljs (do test-ns nil)
                             :default (do test-ns nil))))
 
+#?(:clj
+   (defn- cwd-root*
+     "Project root for the process working directory (user.dir), walking up
+      to the nearest deps.edn/project.clj, or nil. Hosts whose io/resource
+      cannot see classpath files (cljw) still resolve through this."
+     []
+     (when-let [ud (System/getProperty "user.dir")]
+       (walk-up (io/file ud)))))
+
+(defrecord CwdProjectRoot []
+  ProjectRoot
+  (-root-for [_ test-ns] #?(:clj (do test-ns (cwd-root*))
+                            :cljs (do test-ns nil)
+                            :default (do test-ns nil))))
+
+(defrecord FirstOfProjectRoot [resolvers]
+  ProjectRoot
+  (-root-for [_ test-ns]
+    (some #(-root-for % test-ns) resolvers)))
+
 (def default-resolver
-  "Classpath walk-up ProjectRoot — the default anchoring strategy."
-  (->ClasspathProjectRoot))
+  "Classpath walk-up ProjectRoot — the default anchoring strategy. Falls back
+   to a cwd walk-up when the classpath strategy yields nil (e.g. cljw, whose
+   io/resource returns nil for files that are on the classpath)."
+  (->FirstOfProjectRoot [(->ClasspathProjectRoot) (->CwdProjectRoot)]))
 
 (defn anchor
   "Resolve a relative golden `path` against `test-ns`'s project root via
