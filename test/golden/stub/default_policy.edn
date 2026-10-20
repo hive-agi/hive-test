@@ -1,0 +1,8 @@
+{:a
+ {:throws-without-default {:stub ThrowingTagged, :method label},
+  :tagged-string "none",
+  :tagged-boolean false,
+  :override-beats-default :explicit,
+  :partial-known "none",
+  :partial-unknown {:method open?, :tag Boolean},
+  :echo :a}}
