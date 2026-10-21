@@ -1,0 +1,8 @@
+{:before false,
+ :during true,
+ :after false,
+ :state-keys [:executor :project-dir :running? :watch-service],
+ :project-dir? true,
+ :second-start "Watcher already running",
+ :stopped {:stopped true},
+ :stop-again nil}

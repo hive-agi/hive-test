@@ -1,0 +1,25 @@
+{:passing
+ {:summary {:test 2, :pass 5, :fail 0, :error 0},
+  :output "Testing x\n",
+  :errors nil,
+  :raw-values ["{:test 2, :pass 5, :fail 0, :error 0}"],
+  :passed? true,
+  :connected? true},
+ :failing
+ {:summary {:test 1, :pass 0, :fail 1, :error 0},
+  :output "FAIL in (t)\n",
+  :errors "boom\n",
+  :raw-values ["{:test 1, :pass 0, :fail 1, :error 0}"],
+  :passed? false,
+  :connected? true},
+ :no-port
+ {:connected? false,
+  :error "No .nrepl-port file found",
+  :passed? false},
+ :sent
+ [{"code"
+   "(do (require 'clojure.test)    (clojure.test/run-tests 'a.b-test))",
+   "ns" "user",
+   "op" "eval"}
+  {"code" "(+ 1 2)", "ns" "my.ns", "op" "eval", "session" "s1"}],
+ :eval [{"status" ["done"], "value" "3"}]}
