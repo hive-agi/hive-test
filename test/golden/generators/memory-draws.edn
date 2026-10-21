@@ -1,0 +1,21 @@
+{:types
+ [:plan
+  :convention
+  :snippet
+  :axiom
+  :convention
+  :decision
+  :note
+  :decision],
+ :durations [:permanent :medium :medium :ephemeral :medium :short],
+ :entry
+ {:type :axiom,
+  :content "Wg87f0zCG7",
+  :tags
+  ["tag-3qoa2tUKz"
+   "tag-u"
+   "tag-gL0xy64qcy"
+   "tag-Q0Rz"
+   "tag-45v790kyW"],
+  :duration :short},
+ :full-keys [:agent-id :content :duration :scope :tags :type]}

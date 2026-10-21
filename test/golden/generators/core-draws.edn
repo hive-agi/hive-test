@@ -1,0 +1,12 @@
+{:non-blank ["C" "n2IQ" "Vzd" "K8"],
+ :keyword-ns [:e/Wg87f0zCG7 :J4rLoYDH8/o :c0TKhuI/VBXr :s/N5],
+ :uuid-str
+ ["06c45d18-8009-454f-984c-6c53fb60892d"
+  "f893a2ee-fb32-455e-8516-0d22e54d74b9"],
+ :timestamp
+ ["2024-10-02T04:00:00Z"
+  "2026-05-28T21:00:00Z"
+  "2025-04-03T17:00:00Z"
+  "2026-08-07T03:00:00Z"],
+ :project-id ["project-C" "project-n2IQ" "project-Vzd"],
+ :agent-id ["agent:C" "agent:n2IQ" "agent:Vzd"]}
