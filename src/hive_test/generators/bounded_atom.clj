@@ -2,7 +2,8 @@
   "Generators for bounded-atom operations and configuration.
    Used by property tests to prove bounded-atom invariants
    hold under random operation sequences."
-  (:require [clojure.test.check.generators :as gen]))
+  (:require [clojure.test.check.generators :as gen]
+            [hive-test.contract :as mc]))
 
 ;; =============================================================================
 ;; Configuration generators
@@ -124,6 +125,15 @@
     ;; Ensure distinct keys by rewriting keys sequentially
     (vec (map-indexed (fn [i [op _ v]] [op (keyword (str "overflow-k" i)) v])
                       ops))))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def ^:private TcGen
+  "A test.check generator. Generates constant generators."
+  [:fn {:gen/schema :int :gen/fmap gen/return} gen/generator?])
+
+(mc/=> gen-op-sequence [:function [:=> [:cat] TcGen]
+                        [:=> [:cat [:int {:min 0}] [:int {:min 0}]] TcGen]])
+(mc/=> gen-overflow-bput-sequence [:=> [:cat [:int {:min 0}] [:int {:min 0}]] TcGen])
 
 (def gen-keyed-bput-sequence
   "Generator for bput! operations with known keys for tracking.

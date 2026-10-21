@@ -22,7 +22,8 @@
 
    Extending — downstream `(defmethod emit-isolation :my-state [_] ...)`
    returns a `(fn [f] ...)` fixture."
-  (:require [clojure.test :as t]))
+  (:require [clojure.test :as t]
+            [hive-test.contract :as mc]))
 ;; Copyright (C) 2026 Pedro Gomes Branquinho (BuddhiLW) <pedrogbranquinho@gmail.com>
 ;;
 ;; SPDX-License-Identifier: MIT
@@ -82,3 +83,16 @@
    Order matters: outermost first. Earlier specs wrap later ones."
   [& specs]
   (compose-fixtures (mapv emit-isolation specs)))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def Fixture
+  "A clojure.test :each fixture (fn [f] ...). Generates the passthrough."
+  [:fn {:gen/return (fn [f] (f))} ifn?])
+
+(def IsolationSpec
+  "A keyword or {:type kw ...}; generation sticks to the built-in :noop."
+  [:or [:= :noop] [:map [:type :keyword]]])
+
+(mc/=> compose-fixtures [:=> [:cat [:sequential Fixture]] Fixture])
+;; An unregistered spec throws ex-info from emit-isolation's :default.
+(mc/=> with-isolations  [:=> [:cat [:* IsolationSpec]] Fixture])

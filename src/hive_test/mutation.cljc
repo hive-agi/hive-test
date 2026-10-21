@@ -22,7 +22,8 @@
   #?(:clj  (:require [clojure.test :as t])
      :cljs (:require [cljs.test :as t :include-macros true])
      :default (:require [clojure.test :as t]))
-  #?(:cljs (:require-macros [hive-test.mutation])))
+  #?(:cljs (:require-macros [hive-test.mutation]))
+  (:require [hive-test.contract :as mc]))
 
 ;; =============================================================================
 ;; Mutation value object
@@ -109,6 +110,31 @@
   (if (and (seq? subject) (= 'var (first subject)))
     (second subject)
     subject))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def MutantFn
+  "A mutant implementation. Generates constant mutants."
+  [:fn {:gen/elements [(constantly nil) (constantly 0) identity]} ifn?])
+
+(def MutationValue
+  "A Mutation value object."
+  [:fn {:gen/schema [:tuple :string MutantFn] :gen/fmap (fn [[l f]] (->Mutation l f))}
+   #(instance? Mutation %)])
+
+(def MutationSpec
+  "What as-pair coerces: a Mutation, or a [label fn-or-Mutation] pair."
+  [:or MutationValue [:tuple :any [:or MutantFn MutationValue]]])
+
+(def TestCounts
+  [:map [:pass [:int {:min 0}]] [:fail [:int {:min 0}]] [:error [:int {:min 0}]]])
+
+(mc/=> mutation             [:=> [:cat :any MutantFn] MutationValue])
+(mc/=> mutation?            [:=> [:cat :any] :boolean])
+;; Throws ex-info on anything else.
+(mc/=> as-pair              [:=> [:cat MutationSpec] [:tuple :any ifn?]])
+(mc/=> capture-test-results [:=> [:cat [:fn {:gen/elements [(fn [])]} ifn?]] TestCounts])
 
 (defmacro with-mutation
   "Execute body with var-sym temporarily rebound to mutant-fn.

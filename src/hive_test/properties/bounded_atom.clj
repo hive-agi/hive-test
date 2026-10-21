@@ -8,7 +8,8 @@
    - Property test helpers for capacity, idempotency, totality, TTL,
      LRU ordering, FIFO ordering, and put/get roundtrip"
   (:require [clojure.test.check.generators :as gen]
-            [hive-test.generators.bounded-atom :as gen-ba]))
+            [hive-test.generators.bounded-atom :as gen-ba]
+            [hive-test.contract :as mc]))
 
 ;; =============================================================================
 ;; Operation interpreter — executes [:op-keyword & args] against a bounded-atom
@@ -59,3 +60,34 @@
   []
   (gen/tuple gen-ba/gen-bounded-atom-opts
              gen-ba/gen-op-sequence-small))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def ^:private TcGen
+  "A test.check generator. Generates constant generators."
+  [:fn {:gen/schema :int :gen/fmap gen/return} gen/generator?])
+
+(def ApiFns
+  "The bounded-atom API, injected. Generates a map-backed fake."
+  [:map {:gen/schema :nil
+         :gen/fmap (fn [_] {:bput!   (fn [a k v] (swap! a assoc k v))
+                            :bget    (fn [a k] (get @a k))
+                            :bclear! (fn [a] (reset! a {}))
+                            :sweep!  (fn [_ _] nil)
+                            :bcount  (fn [a] (count @a))})}
+   [:bput! ifn?] [:bget ifn?] [:bclear! ifn?] [:sweep! ifn?] [:bcount ifn?]])
+
+(def Op
+  "One generated op vector."
+  [:or [:tuple [:= :bput] :keyword :int] [:tuple [:= :bget] :keyword]
+   [:tuple [:= :bclear]] [:tuple [:= :sweep]] [:tuple [:= :bcount]]])
+
+(def Batom
+  "The bounded atom under test; opaque here (the fake above uses an atom)."
+  [:some {:gen/schema :nil :gen/fmap (fn [_] (atom {}))}])
+
+;; Both answer the batom they were handed, unchanged in identity.
+(mc/=> apply-op [:=> [:cat ApiFns Batom [:sequential :any]] Batom])
+(mc/=> run-ops  [:=> [:cat ApiFns Batom [:sequential [:sequential :any]]] Batom])
+(mc/=> gen-batom-with-ops [:function [:=> [:cat] TcGen]
+                           [:=> [:cat TcGen TcGen] TcGen]])
+(mc/=> gen-batom-with-ops-all-policies [:=> [:cat] TcGen])

@@ -1,7 +1,8 @@
 (ns hive-test.mcp.tools
   "MCP tool definitions for the Kaocha test adapter."
   (:require [hive-test.mcp.nrepl :as nrepl]
-            [hive-test.mcp.watcher :as watcher]))
+            [hive-test.mcp.watcher :as watcher]
+            [hive-test.contract :as mc]))
 
 (defn handle-test-status
   "Get current test health for a project."
@@ -118,3 +119,12 @@
     :description "Stop the file watcher"
     :parameters []
     :handler handle-watch-stop}})
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+;; MCP arguments arrive with string keys; every handler answers a map.
+(def Args [:maybe [:map-of :string :any]])
+(mc/=> handle-test-status   [:=> [:cat Args] :map])
+(mc/=> handle-test-run      [:=> [:cat Args] :map])
+(mc/=> handle-test-failures [:=> [:cat Args] :map])
+(mc/=> handle-watch-start   [:=> [:cat Args] :map])
+(mc/=> handle-watch-stop    [:=> [:cat :any] :map])

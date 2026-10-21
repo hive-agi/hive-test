@@ -3,7 +3,8 @@
    Connects to a running nREPL and evaluates Kaocha/clojure.test forms."
   (:require [bencode.core :as bencode]
             [clojure.string :as str]
-            [hive-dsl.result :refer [rescue]])
+            [hive-dsl.result :refer [rescue]]
+            [hive-test.contract :as mc])
   (:import [java.net Socket]
            [java.io PushbackInputStream]))
 
@@ -116,3 +117,29 @@
         (finally
           (disconnect! conn))))
     {:connected? false :error "No .nrepl-port file found" :passed? false}))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def Response
+  "One decoded nREPL response: string keys, string or vector values."
+  [:map-of :string :any])
+
+(def TestResults
+  [:map [:summary [:maybe :map]] [:output :string] [:errors [:maybe :string]]
+   [:raw-values [:sequential :string]] [:passed? :boolean]])
+
+(mc/=> read-nrepl-port    [:=> [:cat :string] [:maybe :int]])
+(mc/=> parse-test-results [:=> [:cat [:sequential Response]] TestResults])
+(mc/=> test-status!       [:=> [:cat :string]
+                           [:map [:connected? :boolean] [:passed? :boolean] [:error {:optional true} :string]]])
+
+(def Conn
+  "An open nREPL connection."
+  [:map [:socket :some] [:in :some] [:out :some]])
+
+(mc/=> connect!    [:function [:=> [:cat :int] Conn] [:=> [:cat :string :int] Conn]])
+(mc/=> disconnect! [:=> [:cat [:map [:socket {:optional true} :any]]] :nil])
+(mc/=> send-msg!   [:=> [:cat [:map [:out :some]] [:map-of :string :any]] :any])
+;; The raw bencode value, byte arrays still undecoded.
+(mc/=> recv-msg!   [:=> [:cat [:map [:in :some]]] [:maybe :map]])
+(mc/=> eval!       [:=> [:cat Conn :string [:* [:cat :keyword :any]]] [:vector Response]])
+(mc/=> run-tests!  [:=> [:cat Conn [:* [:cat :keyword :any]]] [:vector Response]])

@@ -21,7 +21,8 @@
 
    Decorators: a stub is an ordinary record of its protocol, so recording and
    fault-injecting decorators wrap it by delegation and need nothing from this
-   namespace.")
+   namespace."
+  (:require [hive-test.contract :as mc]))
 
 (defn by-tag
   "Build a :hive-test.stub/default function for defstub from `tag->value`, a map
@@ -35,6 +36,9 @@
       (throw (ex-info (str "Unconfigured stub method " stub " " protocol "/" method
                            " (no default for return tag " (pr-str tag) ")")
                       {:stub stub :protocol protocol :method method :tag tag})))))
+
+;; Contract: registered only when malli is on the classpath (hive-test.contract).
+(mc/=> by-tag [:=> [:cat [:map-of [:maybe :symbol] :any]] ifn?])
 
 (defmacro defstub
   "JVM Clojure only: define a fieldless record implementing every arity in the
