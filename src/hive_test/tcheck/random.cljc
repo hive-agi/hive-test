@@ -42,8 +42,10 @@
 ;; (see hive-test.contract); hive-test itself never depends on malli.
 
 (def Rng
-  "An rng value."
-  [:map [:state [:int {:min 0}]]])
+  "An rng value. Its state lies in [0, modulus): `make-rng` and `next-rng`
+   only produce such states, and `next-rng` overflows a long on a state
+   beyond it, so the bound is the true domain."
+  [:map [:state [:int {:min 0 :max 2147483647}]]])
 
 (mc/=> make-rng [:=> [:cat :int] Rng])
 (mc/=> next-rng [:=> [:cat Rng] Rng])
