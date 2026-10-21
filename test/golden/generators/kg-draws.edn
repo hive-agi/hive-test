@@ -1,0 +1,16 @@
+{:relations
+ [:depends-on
+  :relates
+  :relates
+  :refines
+  :applies-to
+  :applies-to
+  :supersedes
+  :applies-to],
+ :injected [:a :b :b :c :b :b],
+ :source-types
+ [:manual :automated :automated :co-access :inferred :inferred],
+ :datum-kinds
+ [:map :collection :vector :vector :collection :map :map :collection],
+ :edge-keys
+ [:confidence :created-by :from :relation :scope :source-type :to]}

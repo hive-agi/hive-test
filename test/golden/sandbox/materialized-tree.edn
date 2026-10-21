@@ -1,0 +1,8 @@
+{:tree
+ {"a.txt" "alpha",
+  "empty" nil,
+  "gen.txt" "generated:gen.txt",
+  "src" nil,
+  "src/b.clj" "(ns b)"},
+ :paths ["a.txt" "empty" "gen.txt" "src/b.clj"],
+ :file-resolves-outside-spec? true}
