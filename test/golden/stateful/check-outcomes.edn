@@ -1,0 +1,33 @@
+{:live
+ {:ok? true,
+  :states 4,
+  :truncated? false,
+  :vacuity nil,
+  :invariant-violations [],
+  :dead-ends []},
+ :trapped
+ {:ok? false,
+  :states 5,
+  :truncated? false,
+  :vacuity nil,
+  :invariant-violations [],
+  :dead-ends [{:state :sink, :path [[:jump nil]]}]},
+ :co-reachable [0 1 2 3],
+ :dead-ends [{:state :sink, :path [[:jump nil]]}],
+ :violations
+ [{:invariant :below-two, :state 2, :path [[:inc nil] [:inc nil]]}
+  {:invariant :below-two,
+   :state 3,
+   :path [[:inc nil] [:inc nil] [:inc nil]]}],
+ :vacuity
+ ["no :commands — nothing to explore"
+  "every :goal already holds at :init"
+  "only the initial state is reachable — no command was ever enabled"],
+ :truncated
+ {:ok? false,
+  :states 5,
+  :truncated? true,
+  :vacuity nil,
+  :invariant-violations []},
+ :report
+ "explored 5 states\nDEAD END (goal became unreachable):\n  [[:jump nil]]"}
