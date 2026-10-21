@@ -1,0 +1,16 @@
+{:ciphertext
+ {test-add-delete-get :pass,
+  test-add-get-roundtrip :pass,
+  test-search-similar-behavioral :fail},
+ :conforming
+ {test-add-delete-get :pass,
+  test-add-get-roundtrip :pass,
+  test-search-similar-behavioral :pass},
+ :leaky-delete
+ {test-add-delete-get :fail,
+  test-add-get-roundtrip :pass,
+  test-search-similar-behavioral :pass},
+ :unranked
+ {test-add-delete-get :pass,
+  test-add-get-roundtrip :pass,
+  test-search-similar-behavioral :fail}}
