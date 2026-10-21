@@ -1,0 +1,61 @@
+{:responses
+ [{:jsonrpc "2.0",
+   :id 1,
+   :result
+   {:protocolVersion "2024-11-05",
+    :capabilities {:tools {}},
+    :serverInfo {:name "echo", :version "9.9"}}}
+  {:jsonrpc "2.0",
+   :id 2,
+   :result
+   {:tools
+    [{:name "echo/say",
+      :description "echo",
+      :inputSchema
+      {:type "object",
+       :properties {:msg {:type "string"}},
+       :required ["msg"]}}
+     {:name "echo/text",
+      :description nil,
+      :inputSchema {:type "object", :properties {}, :required []}}
+     {:name "echo/boom",
+      :description nil,
+      :inputSchema {:type "object", :properties {}, :required []}}]}}
+  {:jsonrpc "2.0",
+   :id 3,
+   :result
+   {:content [{:type "text", :text "{\n  \"said\" : null\n}"}]}}
+  {:jsonrpc "2.0",
+   :id 4,
+   :result {:content [{:type "text", :text "plain"}]}}
+  {:jsonrpc "2.0",
+   :id 5,
+   :result
+   {:content [{:type "text", :text "Error: kaput"}], :isError true}}
+  {:jsonrpc "2.0",
+   :id 6,
+   :result
+   {:content [{:type "text", :text "Unknown tool: nope"}],
+    :isError true}}
+  {:jsonrpc "2.0",
+   :id 7,
+   :result {:error {:code -32601, :message "Unknown method: bogus"}}}],
+ :log
+ ["Starting echo v 9.9"
+  "Received: initialize"
+  "Responding to: initialize"
+  "Received: tools/list"
+  "Responding to: tools/list"
+  "Received: tools/call"
+  "Responding to: tools/call"
+  "Received: tools/call"
+  "Responding to: tools/call"
+  "Received: tools/call"
+  "Responding to: tools/call"
+  "Received: tools/call"
+  "Responding to: tools/call"
+  "Received: bogus"
+  "Responding to: bogus"
+  "Received: notifications/initialized"
+  "Parse error"
+  "Server shutting down"]}

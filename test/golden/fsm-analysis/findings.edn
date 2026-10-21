@@ -1,0 +1,62 @@
+{:dangling
+ {:ok? false,
+  :dangling-targets
+  [{:from :hive.events.fsm/start,
+    :target :hive-test.fsm-analysis.spec-test/nowhere}],
+  :report
+  "explored 2 states\nDANGLING TARGET:\n  :hive.events.fsm/start -> :hive-test.fsm-analysis.spec-test/nowhere\nDEAD END (no terminal reachable):\n  :hive.events.fsm/start after []\n  :hive-test.fsm-analysis.spec-test/nowhere after [[:dispatch :hive-test.fsm-analysis.spec-test/nowhere]]",
+  :states-explored 2,
+  :dead-ends
+  [{:state :hive.events.fsm/start, :path []}
+   {:state :hive-test.fsm-analysis.spec-test/nowhere,
+    :path [[:dispatch :hive-test.fsm-analysis.spec-test/nowhere]]}],
+  :start :hive.events.fsm/start,
+  :unreachable [],
+  :missing-start? false,
+  :truncated? false},
+ :dead-end
+ {:ok? false,
+  :dangling-targets [],
+  :report
+  "explored 2 states\nDEAD END (no terminal reachable):\n  :hive.events.fsm/start after []\n  :hive-test.fsm-analysis.spec-test/loop after [[:dispatch :hive-test.fsm-analysis.spec-test/loop]]",
+  :states-explored 2,
+  :dead-ends
+  [{:state :hive.events.fsm/start, :path []}
+   {:state :hive-test.fsm-analysis.spec-test/loop,
+    :path [[:dispatch :hive-test.fsm-analysis.spec-test/loop]]}],
+  :start :hive.events.fsm/start,
+  :unreachable [],
+  :missing-start? false,
+  :truncated? false},
+ :healthy
+ {:ok? true,
+  :dangling-targets [],
+  :report "explored 3 states",
+  :states-explored 3,
+  :dead-ends [],
+  :start :hive.events.fsm/start,
+  :unreachable [],
+  :missing-start? false,
+  :truncated? false},
+ :no-start
+ {:ok? false,
+  :dangling-targets [],
+  :report
+  "explored 1 states\nMISSING START: :start is not a state of the spec\nUNREACHABLE:\n  :hive-test.fsm-analysis.spec-test/a\nDEAD END (no terminal reachable):\n  :hive.events.fsm/start after []",
+  :states-explored 1,
+  :dead-ends [{:state :hive.events.fsm/start, :path []}],
+  :start :hive.events.fsm/start,
+  :unreachable [:hive-test.fsm-analysis.spec-test/a],
+  :missing-start? true,
+  :truncated? false},
+ :orphan
+ {:ok? false,
+  :dangling-targets [],
+  :report
+  "explored 2 states\nUNREACHABLE:\n  :hive-test.fsm-analysis.spec-test/orphan",
+  :states-explored 2,
+  :dead-ends [],
+  :start :hive.events.fsm/start,
+  :unreachable [:hive-test.fsm-analysis.spec-test/orphan],
+  :missing-start? false,
+  :truncated? false}}

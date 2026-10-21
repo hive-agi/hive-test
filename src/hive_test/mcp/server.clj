@@ -4,7 +4,8 @@
    test execution to a target project's nREPL."
   (:require [cheshire.core :as json]
             [clojure.string :as str]
-            [hive-test.mcp.tools :refer [kaocha-tools]]))
+            [hive-test.mcp.tools :refer [kaocha-tools]]
+            [hive-test.contract :as mc]))
 
 ;; Protocol version
 (def protocol-version "2024-11-05")
@@ -127,3 +128,37 @@
 
 (defn -main [& _args]
   (run-server! mcp-server))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def Param [:map [:name :string] [:type {:optional true} [:maybe [:or :keyword :string]]]
+            [:description {:optional true} [:maybe :string]] [:required {:optional true} :boolean]])
+(def Tool [:map [:name :string] [:description {:optional true} [:maybe :string]]
+           [:parameters [:sequential Param]] [:handler {:optional true} ifn?]])
+(def Server [:map [:name :string] [:version :string] [:tools [:maybe [:map-of :keyword Tool]]]])
+(def Id [:or :int :string])
+(def Response [:map [:jsonrpc [:= "2.0"]] [:id :any] [:result :any]])
+(def ToolResult [:map [:content [:vector [:map [:type [:= "text"]] [:text :string]]]]
+                 [:isError {:optional true} :boolean]])
+
+(mc/=> ->response        [:=> [:cat Id :any] Response])
+(mc/=> ->error-response  [:=> [:cat Id :int :string]
+                          [:map [:jsonrpc [:= "2.0"]] [:id :any] [:error [:map [:code :int] [:message :string]]]]])
+(mc/=> param->json-schema [:=> [:cat Param] [:tuple :string [:map [:type :string] [:description {:optional true} :string]]]])
+(mc/=> tool->mcp-schema  [:=> [:cat Tool]
+                          [:map [:name :string] [:description :any]
+                           [:inputSchema [:map [:type [:= "object"]] [:properties :map] [:required [:vector :string]]]]]])
+(mc/=> make-server       [:=> [:cat [:map [:name :string] [:version :string] [:tools [:maybe [:map-of :keyword Tool]]]]] Server])
+(mc/=> handle-initialize [:=> [:cat Server :any]
+                          [:map [:protocolVersion :string] [:capabilities :map] [:serverInfo [:map [:name :string] [:version :string]]]]])
+(mc/=> handle-tools-list [:=> [:cat Server :any] [:map [:tools [:vector :map]]]])
+(mc/=> handle-tools-call [:=> [:cat Server [:map [:name :string] [:arguments {:optional true} [:maybe :map]]]] ToolResult])
+;; nil for notifications and for a request without an id.
+(mc/=> handle-request    [:=> [:cat Server [:map [:id {:optional true} [:maybe Id]] [:method :string] [:params {:optional true} :any]]]
+                          [:maybe Response]])
+
+;; The stdio transport: JSON lines in, JSON lines out.
+(mc/=> read-message  [:=> [:cat] [:maybe :map]])
+(mc/=> write-message [:=> [:cat :map] :nil])
+(mc/=> log-stderr    [:=> [:cat [:* :any]] :nil])
+(mc/=> run-server!   [:=> [:cat Server] :nil])
+(mc/=> -main         [:=> [:cat [:* :string]] :nil])

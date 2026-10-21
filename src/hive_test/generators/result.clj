@@ -1,7 +1,8 @@
 (ns hive-test.generators.result
   "Generators for the Result DSL (ok/err monadic type).
    Extracted from hive-mcp result_property_test.clj."
-  (:require [clojure.test.check.generators :as gen]))
+  (:require [clojure.test.check.generators :as gen]
+            [hive-test.contract :as mc]))
 
 ;; Assorted error-category keywords for SHAPE fuzzing of the Result DSL.
 ;; NOT the category truth: the single source of registered error categories is
@@ -77,3 +78,19 @@
     (-> extras
         (dissoc :ok)
         (assoc :error cat))))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def ^:private TcGen
+  "A test.check generator. Generates constant generators."
+  [:fn {:gen/schema :int :gen/fmap gen/return} gen/generator?])
+
+(def ^:private Ctor
+  "A Result constructor, e.g. hive-dsl.result/ok."
+  [:fn {:gen/elements [(fn [v] {:ok v}) (fn [c] {:error c})]} ifn?])
+
+(mc/=> gen-ok              [:=> [:cat Ctor] TcGen])
+(mc/=> gen-err             [:=> [:cat Ctor] TcGen])
+(mc/=> gen-result          [:=> [:cat Ctor Ctor] TcGen])
+(mc/=> gen-result-fn       [:=> [:cat Ctor Ctor] TcGen])
+(mc/=> gen-plain-fn        [:=> [:cat] TcGen])
+(mc/=> gen-err-with-extras [:=> [:cat] TcGen])

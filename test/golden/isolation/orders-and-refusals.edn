@@ -1,0 +1,5 @@
+{:zero [[:test]],
+ :two [[:enter 0] [:enter 1] [:test] [:exit 1] [:exit 0]],
+ :unknown-keyword
+ "Unknown isolation spec: :hive-test.isolation-test/nope. Register via (defmethod emit-isolation ::hive-test.isolation-test/nope ...).",
+ :unknown-map {:spec {:type :hive-test.isolation-test/nope, :x 1}}}

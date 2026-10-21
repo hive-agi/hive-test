@@ -1,0 +1,3 @@
+{:passing {:result true, :num-tests 20, :seed 7},
+ :failing
+ {:result false, :num-tests 2, :seed 7, :fail [-1], :failing-size 2}}

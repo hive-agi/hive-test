@@ -2,7 +2,8 @@
   "Generators for Knowledge Graph edges, nodes, and relations.
    Extracted from hive-mcp edges_property_test.clj."
   (:require [clojure.test.check.generators :as gen]
-            [hive-test.generators.core :as gen-core]))
+            [hive-test.generators.core :as gen-core]
+            [hive-test.contract :as mc]))
 
 (def source-types
   "Valid KG source types."
@@ -24,6 +25,14 @@
   "Generator of relation keywords drawn from `rels` (default `relation-types`)."
   ([] (relation-gen relation-types))
   ([rels] (gen/elements (vec rels))))
+
+;; Contract: registered only when malli is on the classpath (hive-test.contract).
+(def ^:private TcGen
+  "A test.check generator. Generates constant generators."
+  [:fn {:gen/schema :int :gen/fmap gen/return} gen/generator?])
+
+(mc/=> relation-gen [:function [:=> [:cat] TcGen]
+                     [:=> [:cat [:or [:sequential {:min 1} :keyword] [:set {:min 1} :keyword]]] TcGen]])
 
 (def gen-relation
   "Generator for KG relation type keywords."
