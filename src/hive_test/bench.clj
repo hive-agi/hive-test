@@ -19,7 +19,8 @@
      (require '[hive-test.bench])      ; triggers reporter registration
      (defbench hot-path {:threshold-p95-ms 5.0} (do-work))"
   (:require [clojure.test :as t]
-            [hive-dsl.result :refer [rescue]]))
+            [hive-dsl.result :refer [rescue]]
+            [hive-test.contract :as mc]))
 
 (defn- log-warn [& args] (binding [*out* *err*] (apply println "[WARN]" args)))
 (defn- log-debug [& _args] nil) ; no-op; upgrade to tools.logging if added to deps
@@ -75,6 +76,20 @@
                     (or p95 Double/NaN)
                     (or p99 Double/NaN)))
   result)
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def BenchOpts [:map [:name {:optional true} :any] [:runs {:optional true} [:int {:min 0}]]
+                [:warmup {:optional true} [:int {:min 0}]]])
+(def BenchResult
+  "A hive-ttracking BenchResult, as far as report-bench reads it."
+  [:map [:name {:optional true} :any]
+   [:p50 {:optional true} [:maybe number?]] [:p95 {:optional true} [:maybe number?]]
+   [:p99 {:optional true} [:maybe number?]]
+   [:runs {:optional true} [:maybe :int]] [:warmup {:optional true} [:maybe :int]]])
+
+;; Throws ex-info when hive-ttracking is absent.
+(mc/=> run-bench    [:=> [:cat BenchOpts [:fn {:gen/return (fn [] 1)} ifn?]] BenchResult])
+(mc/=> report-bench [:=> [:cat BenchResult] BenchResult])
 
 ;; ---------------------------------------------------------------------------
 ;; defbench — thin shim over hive-ttracking.bench/defbench when available;

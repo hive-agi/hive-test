@@ -1,0 +1,19 @@
+{:stable
+ [:ok
+  [{:type :pass,
+    :message
+    "Atom count grew by 0 (before=1, after=1), exceeds max-growth=0"}]],
+ :grew-ok
+ [:grew
+  [{:type :pass,
+    :message
+    "Atom count grew by 1 (before=1, after=2), exceeds max-growth=1"}]],
+ :grew-over
+ [:over
+  [{:type :fail,
+    :message
+    "Atom count grew by 2 (before=2, after=4), exceeds max-growth=0"}]],
+ :roundtrip
+ [nil [{:type :fail, :message "Lifecycle roundtrip threw"}]],
+ :idempotent [nil [{:type :fail, :message "Idempotent stop! threw"}]],
+ :fixture [:ran [:pass :pass]]}

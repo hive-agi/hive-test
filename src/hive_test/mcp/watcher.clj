@@ -3,7 +3,8 @@
    and triggers test re-runs via nREPL."
   (:require [hive-test.mcp.nrepl :as nrepl]
             [clojure.string :as str]
-            [hive-dsl.result :refer [rescue]])
+            [hive-dsl.result :refer [rescue]]
+            [hive-test.contract :as mc])
   (:import [java.nio.file FileSystems Paths StandardWatchEventKinds WatchService]
            [java.util.concurrent Executors TimeUnit]))
 
@@ -112,3 +113,14 @@
   "Returns true if watcher is currently running."
   []
   (some? @watcher-state))
+
+;; Throws ex-info when already watching or when the project has no .nrepl-port.
+(mc/=> start-watching!
+  [:=> [:cat :string [:* [:cat :keyword :any]]]
+   [:map [:watch-service :some] [:executor :some] [:running? :some] [:project-dir :string]]])
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(mc/=> latest-results [:function [:=> [:cat] [:sequential :map]]
+                       [:=> [:cat [:maybe [:int {:min 0}]]] [:sequential :map]]])
+(mc/=> stop-watching! [:=> [:cat] [:maybe [:map [:stopped [:= true]]]]])
+(mc/=> watching?      [:=> [:cat] :boolean])

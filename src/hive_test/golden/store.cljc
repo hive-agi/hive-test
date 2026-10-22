@@ -11,7 +11,8 @@
      :cljs (:require [cljs.reader :as reader]
                      [cljs.pprint :as pp])
      :default (:require [clojure.edn :as edn]))
-  #?(:clj (:import [java.io File])))
+  #?(:clj (:import [java.io File]))
+  (:require [hive-test.contract :as mc]))
 
 (defprotocol GoldenStore
   "Persistence port for golden snapshots."
@@ -73,3 +74,14 @@
   "In-memory GoldenStore over an atom map; for testing the golden system."
   ([] (memory-store {}))
   ([init] (->AtomGoldenStore (atom init))))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def Store
+  "A GoldenStore. Generates an empty in-memory store."
+  [:fn {:gen/schema :nil :gen/fmap (fn [_] (->AtomGoldenStore (atom {})))}
+   #(satisfies? GoldenStore %)])
+
+(mc/=> file-store   [:=> [:cat] Store])
+(mc/=> memory-store [:function [:=> [:cat] Store] [:=> [:cat [:map-of :string :any]] Store]])

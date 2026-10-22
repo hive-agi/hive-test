@@ -1,0 +1,7 @@
+{:full
+ "[INFO] bench :hot: runs=10 warmup=2 p50=1.000ms p95=2.500ms p99=3.250ms",
+ :partial
+ "[INFO] bench \"cold\": runs=0 warmup=0 p50=NaNms p95=0.500ms p99=NaNms",
+ :empty
+ "[INFO] bench nil: runs=0 warmup=0 p50=NaNms p95=NaNms p99=NaNms",
+ :missing-dep "add io.github.hive-agi/hive-ttracking to :test deps"}

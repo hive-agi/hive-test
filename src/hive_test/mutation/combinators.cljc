@@ -9,7 +9,8 @@
    Output-transforming combinators (drop-key, assoc-const, off-by-one,
    negate-pred) WRAP the original fn — pass the subject value; the :mutations
    vector is evaluated before the var is rebound, so it captures the real impl."
-  (:require [hive-test.mutation :as mut]))
+  (:require [hive-test.mutation :as mut]
+            [hive-test.contract :as mc]))
 
 (defn always
   "Mutant that ignores its args and always returns v."
@@ -44,3 +45,18 @@
   "Mutant that logically negates orig's boolean result."
   [orig]
   (mut/mutation "negate-pred" (fn [& args] (not (apply orig args)))))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def ^:private Orig
+  "The subject fn a wrapping mutant delegates to."
+  [:fn {:gen/elements [(fn [& _] {:k 1}) (fn [& _] 1) (fn [& _] true)]} ifn?])
+
+(mc/=> always      [:=> [:cat :any] mut/MutationValue])
+(mc/=> echo-arg    [:function [:=> [:cat] mut/MutationValue]
+                    [:=> [:cat [:int {:min 0}]] mut/MutationValue]])
+(mc/=> drop-key    [:=> [:cat Orig :any] mut/MutationValue])
+(mc/=> assoc-const [:=> [:cat Orig :any :any] mut/MutationValue])
+(mc/=> off-by-one  [:=> [:cat Orig] mut/MutationValue])
+(mc/=> negate-pred [:=> [:cat Orig] mut/MutationValue])

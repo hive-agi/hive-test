@@ -4,7 +4,8 @@
   A generator is a function of [rng size] returning [value rng']. Shrinking is
   not modelled: a failure reports the input that produced it."
   (:refer-clojure :exclude [boolean char keyword list map not-empty set vector])
-  (:require [hive-test.tcheck.random :as rng]))
+  (:require [hive-test.tcheck.random :as rng]
+            [hive-test.contract :as mc]))
 
 (defn call
   "Draw one value from `gen`, returning [value rng']."
@@ -131,3 +132,42 @@
        (let [[v r'] (call gen r (inc i))]
          (recur (inc i) r' (conj acc v)))
        acc))))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def Gen
+  "A generator: (fn [rng size] [value rng']). Generates constant generators."
+  [:fn {:gen/schema :int :gen/fmap (fn [n] (return n))} fn?])
+
+(def Pred
+  "A predicate over generated values. Generates total ones."
+  [:fn {:gen/elements [some? int? (constantly true)]} ifn?])
+
+(mc/=> call      [:=> [:cat Gen rng/Rng :int] [:tuple :any rng/Rng]])
+(mc/=> return    [:=> [:cat :any] Gen])
+(mc/=> choose    [:=> [:cat :int :int] Gen])
+(mc/=> fmap      [:=> [:cat [:fn {:gen/elements [identity str vector]} ifn?] Gen] Gen])
+(mc/=> bind      [:=> [:cat Gen [:fn {:gen/elements [return]} ifn?]] Gen])
+(mc/=> such-that [:function
+                  [:=> [:cat Pred Gen] Gen]
+                  [:=> [:cat Pred Gen :int] Gen]])
+(mc/=> tuple     [:=> [:cat [:* Gen]] Gen])
+(mc/=> elements  [:=> [:cat [:or [:sequential {:min 1} :any] [:set {:min 1} :any]]] Gen])
+(mc/=> one-of    [:=> [:cat [:sequential {:min 1} Gen]] Gen])
+(mc/=> frequency [:=> [:cat [:sequential {:min 1} [:tuple :int Gen]]] Gen])
+(mc/=> vector    [:function
+                  [:=> [:cat Gen] Gen]
+                  [:=> [:cat Gen [:int {:min 0}]] Gen]
+                  [:=> [:cat Gen [:int {:min 0}] [:int {:min 0}]] Gen]])
+(mc/=> list      [:=> [:cat Gen] Gen])
+(mc/=> set       [:=> [:cat Gen] Gen])
+(mc/=> map       [:=> [:cat Gen Gen] Gen])
+(mc/=> not-empty [:=> [:cat Gen] Gen])
+(mc/=> generate  [:function
+                  [:=> [:cat Gen] :any]
+                  [:=> [:cat Gen :int] :any]
+                  [:=> [:cat Gen :int rng/Rng] :any]])
+(mc/=> sample    [:function
+                  [:=> [:cat Gen] [:vector :any]]
+                  [:=> [:cat Gen [:int {:min 0}]] [:vector :any]]])

@@ -20,7 +20,8 @@
      :default (:require [clojure.test :as t]
                         [hive-test.golden.store :as store]
                         [hive-test.golden.root :as root]))
-  #?(:cljs (:require-macros [hive-test.golden])))
+  #?(:cljs (:require-macros [hive-test.golden]))
+  (:require [hive-test.contract :as mc]))
 
 (def ^:dynamic *store*
   "Injected GoldenStore port (DIP seam). Default: filesystem."
@@ -65,6 +66,15 @@
             (str "Golden snapshot mismatch at " path
                  "\n  Run with UPDATE_GOLDEN=true to update."))
       value)))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(mc/=> anchor         [:=> [:cat :symbol :string] :string])
+(mc/=> read-golden    [:=> [:cat :string] :any])
+;; Returns the value written, unchanged.
+(mc/=> update-golden! [:=> [:cat :string :any] :any])
+(mc/=> assert-golden  [:=> [:cat :string :any] :any])
 
 (defmacro deftest-golden
   "Define a golden/characterization test: snapshot `expr` to `golden-path` on

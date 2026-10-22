@@ -1,0 +1,12 @@
+{:op-kinds
+ [[:bput :bput]
+  [:bput :bget :bcount :bget :bput :bclear]
+  [:bclear :bput :bcount :bcount]
+  [:bget :bput :bput :bput :sweep]],
+ :overflow [:overflow-k0 :overflow-k1 :overflow-k2],
+ :policies [:ttl :fifo :fifo :lru :fifo :fifo],
+ :opts
+ [{:eviction-policy :fifo, :max-entries 3, :ttl-ms 8202}
+  {:eviction-policy :lru, :max-entries 98, :ttl-ms 8586}
+  {:eviction-policy :ttl, :max-entries 60, :ttl-ms nil}],
+ :keyed-size [2 49 30 31]}

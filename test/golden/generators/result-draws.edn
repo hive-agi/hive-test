@@ -1,0 +1,21 @@
+{:err-categories
+ [:drone/spawn-failed
+  :parse/invalid-json
+  :parse/invalid-json
+  :io/read-failure
+  :chroma/connection-failed
+  :kg/node-not-found],
+ :ok-kinds ["EmptyList" "PersistentVector" "EmptyList" "EmptyList"],
+ :result-kinds [:ok :error :error :error :error :ok :ok :error],
+ :result-fns
+ [{:ok {:wrapped 3}}
+  {:error :test/generated}
+  {:error :test/generated}
+  {:ok 3}
+  {:error :test/generated}
+  {:ok "3"}],
+ :plain-fns [42 [3] [3] 3 [3] "3"],
+ :extras-keys
+ [[":+-/-*D" ":+xD/L!00" ":error"]
+  [":*B/M" ":-TB3/Y" ":error" ":h_/*0K-"]
+  [":G/n!G?" ":error"]]}

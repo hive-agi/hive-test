@@ -1,1 +1,3 @@
-{:config-paths ["../resources/clj-kondo.exports/io.github.hive-agi/hive-test"]}
+{:config-paths ["../resources/clj-kondo.exports/io.github.hive-agi/hive-test"]
+ ;; Test-support macro, same [sym expr] & body shape as with-sandbox.
+ :hooks {:analyze-call {hive-test.mcp.fake-nrepl/with-fake-nrepl hive-test.hooks.macros/with-sandbox}}}

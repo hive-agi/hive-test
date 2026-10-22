@@ -10,7 +10,8 @@
    Privileged state ids are keywords, not code — defaults mirror
    hive.events.fsm (::start, ::end, ::halt, ::error); pass others via opts."
   (:require [clojure.string :as str]
-            [hive-test.stateful :as sf]))
+            [hive-test.stateful :as sf]
+            [hive-test.contract :as mc]))
 
 ;; ── data ─────────────────────────────────────────────────────────────────────
 
@@ -106,3 +107,30 @@
          (str "\nDEAD END (no terminal reachable):"
               (apply str (for [{:keys [state path]} dead-ends]
                            (str "\n  " state " after " (pr-str path))))))))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def StateId
+  "A state id; generation favours the privileged ids so edges connect."
+  [:or [:enum default-start :hive.events.fsm/end :hive.events.fsm/error ::a ::b] :keyword])
+
+(def Spec
+  "A hive.events.fsm spec as far as analysis reads it: the dispatch graph."
+  [:map [:fsm [:map-of StateId [:map [:dispatches {:optional true}
+                                      [:sequential [:tuple StateId :any]]]]]]])
+
+(def Opts [:? [:maybe [:map [:start {:optional true} StateId]
+                            [:terminals {:optional true} [:set StateId]]]]])
+
+(def Findings
+  [:map [:ok? :boolean] [:start :any] [:states-explored [:int {:min 0}]]
+   [:truncated? :boolean] [:missing-start? :boolean]
+   [:unreachable [:vector :any]]
+   [:dangling-targets [:vector [:map [:from :any] [:target :any]]]]
+   [:dead-ends [:vector [:map [:state :any] [:path [:vector [:tuple :any :any]]]]]]])
+
+(mc/=> static-graph [:=> [:cat Spec] [:map [:states [:set :any]] [:adjacency [:map-of :any [:set :any]]]]])
+(mc/=> machine      [:=> [:cat Spec Opts] sf/Machine])
+(mc/=> analyze      [:=> [:cat Spec Opts] Findings])
+(mc/=> report-str   [:=> [:cat [:map]] :string])

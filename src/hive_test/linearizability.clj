@@ -29,7 +29,8 @@
        (fn [state] (map? @state)))"
   (:require [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
-            [clojure.test.check.generators :as gen])
+            [clojure.test.check.generators :as gen]
+            [hive-test.contract :as mc])
   (:import [java.util.concurrent CyclicBarrier CountDownLatch TimeUnit]))
 
 (defn run-concurrent
@@ -67,6 +68,15 @@
           (throw (ex-info "Concurrent execution had errors"
                           {:errors (mapv #(.getMessage %) @errors)})))
         completed?))))
+
+;; Contract: registered only when malli is on the classpath (hive-test.contract).
+;; The state is the caller's (often an atom); throws ex-info when a worker threw.
+(mc/=> run-concurrent
+  [:=> [:cat [:sequential [:sequential :any]]
+        [:fn {:gen/return (fn [st op] (swap! st conj op))} ifn?]
+        [:some {:gen/schema :nil :gen/fmap (fn [_] (atom []))}]
+        [:int {:min 0}]]
+   :boolean])
 
 (defmacro defprop-concurrent-safe
   "Generate a defspec verifying a state invariant under concurrent execution.

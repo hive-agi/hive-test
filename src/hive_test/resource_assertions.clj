@@ -23,7 +23,8 @@
      (use-fixtures :each resource-cleanup-fixture)"
   (:require [clojure.test :refer [is do-report]]
             [clojure.set :as set]
-            [hive-dsl.result :refer [rescue]])
+            [hive-dsl.result :refer [rescue]]
+            [hive-test.contract :as mc])
   (:import [java.lang.management ManagementFactory]))
 
 ;; =============================================================================
@@ -337,3 +338,18 @@
               (str "Fixture: bounded-atom registry leak, grew by " registry-growth)))
         ;; Always attempt registry cleanup
         (clear-registry!)))))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def ^:private Thunk [:fn {:gen/return (fn [] :done)} ifn?])
+
+(mc/=> thread-count      [:=> [:cat] [:int {:min 1}]])
+(mc/=> thread-names      [:=> [:cat] [:set :string]])
+(mc/=> thread-diff       [:=> [:cat [:set :string] [:set :string]]
+                          [:map [:added [:set :string]] [:removed [:set :string]]]])
+(mc/=> registry-snapshot [:=> [:cat] [:int {:min 0}]])
+;; Returns f's own result.
+(mc/=> assert-atom-count-stable [:=> [:cat [:map [:atom :some]] :int Thunk] :any])
+;; The resource is a hive-dsl Lifecycle; nil when the roundtrip threw.
+(mc/=> assert-lifecycle-roundtrip [:=> [:cat :some] :any])
+(mc/=> assert-stop-idempotent     [:=> [:cat :some] :any])
+(mc/=> resource-cleanup-fixture   [:=> [:cat Thunk] :any])

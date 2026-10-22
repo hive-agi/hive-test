@@ -24,7 +24,8 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [hive-spi.memory.ids :as ids]
             [hive-spi.memory.ports :as ports]
-            [hive-test.generators.memory :as gen-mem]))
+            [hive-test.generators.memory :as gen-mem]
+            [hive-test.contract :as mc]))
 
 ;; =============================================================================
 ;; Dynamic Var, backends bind this to a factory fn
@@ -60,6 +61,11 @@
   (if *store-factory*
     (f)
     nil))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(mc/=> analytics-store?      [:=> [:cat :any] :boolean])
+(mc/=> staleness-store?      [:=> [:cat :any] :boolean])
+(mc/=> store-factory-fixture [:=> [:cat [:fn {:gen/return (fn [] nil)} ifn?]] :any])
 
 (use-fixtures :each store-factory-fixture)
 

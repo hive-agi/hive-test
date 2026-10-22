@@ -24,7 +24,8 @@
 
    Rationale: hive memory [[20260714012524-6370a2c4]]."
   #?(:cljs (:require-macros [hive-test.stateful]))
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hive-test.contract :as mc]))
 
 (def ^:private empty-queue
   #?(:clj  clojure.lang.PersistentQueue/EMPTY
@@ -207,6 +208,54 @@
          (str "\nDEAD END (goal became unreachable):"
               (apply str (for [{:keys [path]} dead-ends]
                            (str "\n  " (pr-str path))))))))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def Machine
+  "A Machine (see the ns docstring). Generates a two-state counter machine
+   whose goal is reachable."
+  [:map {:gen/schema :nil
+         :gen/fmap (fn [_] {:init (fn [] 0)
+                            :commands {:inc {:pre (fn [m _] (< m 2)) :next (fn [m _] (inc m))}}
+                            :goals {:two (fn [m] (= 2 m))}})}
+   [:init ifn?]
+   [:commands [:map-of :any :map]]
+   [:invariants {:optional true} [:map-of :any ifn?]]
+   [:goals {:optional true} [:map-of :any ifn?]]
+   [:ident {:optional true} ifn?]])
+
+(def Graph
+  "An explored state graph."
+  [:map [:root :any] [:states :map] [:edges :map] [:parent :map] [:truncated? :boolean]])
+
+(def ExploreOpts
+  [:maybe [:map [:max-states {:optional true} [:int {:min 0}]]
+                [:max-depth {:optional true} [:int {:min 0}]]
+                [:limit {:optional true} [:int {:min 0}]]
+                [:explorer {:optional true} [:fn {:gen/return default-explorer} #(satisfies? IExplorer %)]]]])
+
+(def Path [:vector [:tuple :any :any]])
+(def DeadEnd [:map [:state :any] [:path Path]])
+(def GoalPred [:fn {:gen/elements [(constantly true) (constantly false) int?]} ifn?])
+
+(def CheckResult
+  [:map [:ok? :boolean] [:states [:int {:min 0}]] [:truncated? :boolean]
+   [:vacuity [:maybe [:sequential :string]]]
+   [:invariant-violations [:vector [:map [:invariant :any] [:state :any] [:path Path]]]]
+   [:dead-ends [:maybe [:vector DeadEnd]]]])
+
+(mc/=> enabled      [:=> [:cat Machine :any] [:sequential [:tuple :any :any :any]]])
+(mc/=> explore      [:=> [:cat Machine ExploreOpts] Graph])
+(mc/=> path-to      [:=> [:cat Graph :any] Path])
+(mc/=> co-reachable [:=> [:cat Graph GoalPred] [:set :any]])
+(mc/=> dead-ends    [:=> [:cat Graph GoalPred [:? ExploreOpts]] [:vector DeadEnd]])
+(mc/=> invariant-violations
+  [:=> [:cat Graph [:maybe [:map-of :any ifn?]] [:? ExploreOpts]]
+   [:vector [:map [:invariant :any] [:state :any] [:path Path]]]])
+(mc/=> vacuity      [:=> [:cat Machine Graph] [:maybe [:sequential :string]]])
+(mc/=> check        [:=> [:cat Machine [:? ExploreOpts]] CheckResult])
+(mc/=> report-str   [:=> [:cat [:map]] :string])
 
 #?(:clj
    (defmacro defcheck

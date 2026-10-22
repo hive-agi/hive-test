@@ -2,7 +2,8 @@
   "`defspec` and `quick-check`, matching `clojure.test.check.clojure-test`."
   (:require [clojure.test :as t]
             [hive-test.tcheck.properties :as prop]
-            [hive-test.tcheck.random :as rng]))
+            [hive-test.tcheck.random :as rng]
+            [hive-test.contract :as mc]))
 
 (def ^:dynamic *seed*
   "Seed for the next quick-check run. Bind to reproduce a failure."
@@ -38,6 +39,21 @@
                ", input " (pr-str (:fail outcome))
                (when-let [e (:error outcome)]
                  (str ", threw " (pr-str (ex-message e))))))))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def QuickCheckResult
+  "quick-check's answer."
+  [:map [:result :boolean] [:num-tests :int] [:seed :int]
+   [:fail {:optional true} [:vector :any]] [:failing-size {:optional true} :int]
+   [:error {:optional true} :any]])
+
+(mc/=> quick-check [:function
+                    [:=> [:cat [:int {:min 0}] prop/Prop] QuickCheckResult]
+                    [:=> [:cat [:int {:min 0}] prop/Prop :int] QuickCheckResult]])
+;; Answers what clojure.test/is answers: the asserted boolean.
+(mc/=> report [:=> [:cat QuickCheckResult] :boolean])
 
 (defmacro defspec
   "`(defspec name n property)` -> a deftest running the property `n` times."

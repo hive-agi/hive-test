@@ -4,7 +4,8 @@
    one under the test namespace's own repository."
   #?(:clj (:require [clojure.java.io :as io]
                     [clojure.string :as str]))
-  #?(:clj (:import [java.io File])))
+  #?(:clj (:import [java.io File]))
+  (:require [hive-test.contract :as mc]))
 
 (defprotocol ProjectRoot
   "Resolve a test namespace to the project-root dir its goldens anchor to."
@@ -77,3 +78,12 @@
                 path)))
      :cljs (do resolver test-ns path)
      :default (do resolver test-ns path)))
+
+;; Contracts: `mc/=>` registers each only when malli is on the classpath
+;; (see hive-test.contract); hive-test itself never depends on malli.
+
+(def Resolver
+  "A ProjectRoot strategy. Generates the default resolver."
+  [:fn {:gen/return default-resolver} #(satisfies? ProjectRoot %)])
+
+(mc/=> anchor [:=> [:cat Resolver :symbol :string] :string])

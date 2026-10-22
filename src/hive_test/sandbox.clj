@@ -20,7 +20,8 @@
                            {:type :sandbox :spec {\"src/a.clj\" \"(ns a)\"}}))
    binds *sandbox* around each test and destroys the tree afterwards."
   (:require [clojure.java.io :as io]
-            [hive-test.isolation :as isolation])
+            [hive-test.isolation :as isolation]
+            [hive-test.contract :as mc])
   (:import [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
 
@@ -78,6 +79,21 @@
                  :paths    paths
                  :file     (fn [rel] (str (io/file dir rel)))}]
      (assoc handle :destroy! (fn [] (destroy! handle))))))
+
+;; Contracts: registered only when malli is on the classpath (hive-test.contract).
+(def SandboxSpec
+  "{rel-path content}: string body, fn plug point, or nil for a directory."
+  [:map-of [:string {:gen/elements ["a.txt" "src/b.clj" "dir"]}]
+   [:or :string :nil [:fn {:gen/return (fn [{:keys [path]}] path)} fn?]]])
+
+(def Handle
+  [:map [::created [:= true]] [:dir :string] [:paths [:map-of :string :string]]
+   [:file ifn?] [:destroy! ifn?]])
+
+;; Refuses (nil) any map this ns did not mint.
+(mc/=> destroy! [:=> [:cat [:map [:dir {:optional true} :any]]] [:maybe [:= true]]])
+(mc/=> sandbox! [:function [:=> [:cat SandboxSpec] Handle]
+                 [:=> [:cat SandboxSpec [:map [:prefix {:optional true} [:string {:min 3}]]]] Handle]])
 
 (defmacro with-sandbox
   "binding: [sb spec] or [sb spec opts]. Creates the tree, binds `sb` to the
