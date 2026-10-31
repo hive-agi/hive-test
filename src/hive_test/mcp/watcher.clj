@@ -67,13 +67,10 @@
     (let [run-tests-fn (fn []
                          (when (compare-and-set! pending true false)
                            (try
-                             (let [conn (nrepl/connect! port)]
-                               (try
-                                 (let [responses (nrepl/run-tests! conn)
-                                       result    (nrepl/parse-test-results responses)]
-                                   (store-result! result))
-                                 (finally
-                                   (nrepl/disconnect! conn))))
+                             (nrepl/with-connection [conn port]
+                               (let [responses (nrepl/run-tests! conn)
+                                     result    (nrepl/parse-test-results responses)]
+                                 (store-result! result)))
                              (catch Exception e
                                (store-result! {:error (.getMessage e) :passed? false})))))]
 

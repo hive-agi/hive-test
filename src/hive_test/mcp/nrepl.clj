@@ -29,6 +29,14 @@
   [{:keys [socket]}]
   (when socket (.close ^Socket socket)))
 
+(defmacro with-connection
+  "binding: [sym port]. Connects to the nREPL on `port`, binds the connection
+   map to sym and runs body; the socket is closed by with-open on every exit."
+  [[sym port] & body]
+  `(let [~sym (connect! ~port)]
+     (with-open [~(with-meta (gensym "socket") {:tag 'java.net.Socket}) (:socket ~sym)]
+       ~@body)))
+
 (defn send-msg!
   "Send a bencode message to nREPL."
   [{:keys [out]} msg]
@@ -107,15 +115,13 @@
   "Get test health from a project. Connects, runs tests, disconnects."
   [project-dir]
   (if-let [port (read-nrepl-port project-dir)]
-    (let [conn (connect! port)]
+    (with-connection [conn port]
       (try
         (let [responses (run-tests! conn)
               results   (parse-test-results responses)]
           (assoc results :connected? true :port port))
         (catch Exception e
-          {:connected? true :port port :error (.getMessage e) :passed? false})
-        (finally
-          (disconnect! conn))))
+          {:connected? true :port port :error (.getMessage e) :passed? false})))
     {:connected? false :error "No .nrepl-port file found" :passed? false}))
 
 ;; Contracts: registered only when malli is on the classpath (hive-test.contract).
