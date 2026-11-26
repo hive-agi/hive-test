@@ -67,6 +67,16 @@ jobs:
               (print (if (> target-minor current-minor) "minor" "patch")))')"
           clojure -T:build bump :level ":${LEVEL}"
 
+      - name: Deploy
+        env:
+          # The hive-agi org secret is CLOJARS_DEPLOY_TOKEN, while deps-deploy
+          # and build.clj both read CLOJARS_PASSWORD. Map one onto the other.
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_DEPLOY_TOKEN }}
+        run: clojure -T:build deploy
+
+      # After Deploy: a pushed tag must name a version that is in the registry.
+      # A failed deploy then leaves no tag, and the tag-derived base retries it.
       - name: Tag
         run: |
           set -euo pipefail
@@ -78,11 +88,3 @@ jobs:
           # Annotated, so the next run's tag scan and `git describe` see it.
           git tag -a "v$VER" -m "release $VER"
           git push origin "refs/tags/v$VER"
-
-      - name: Deploy
-        env:
-          # The hive-agi org secret is CLOJARS_DEPLOY_TOKEN, while deps-deploy
-          # and build.clj both read CLOJARS_PASSWORD. Map one onto the other.
-          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
-          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_DEPLOY_TOKEN }}
-        run: clojure -T:build deploy

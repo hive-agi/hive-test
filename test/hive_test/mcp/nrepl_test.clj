@@ -40,6 +40,21 @@
   (sb/with-sandbox [h {}]
     (is (nil? (nrepl/read-nrepl-port (:dir h))))))
 
+(deftest with-connection-closes-the-socket-on-every-exit
+  (fake/with-fake-nrepl [f [{"value" "3"}]]
+    (let [seen (atom nil)
+          v    (nrepl/with-connection [c (:port f)]
+                 (reset! seen c)
+                 (get (last (nrepl/eval! c "(+ 1 2)")) "value"))]
+      (is (= "3" v))
+      (is (.isClosed ^java.net.Socket (:socket @seen))))
+    (let [seen (atom nil)]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (nrepl/with-connection [c (:port f)]
+                     (reset! seen c)
+                     (throw (ex-info "boom" {})))))
+      (is (.isClosed ^java.net.Socket (:socket @seen))))))
+
 (defn- status-through-fake [responses]
   (fake/with-fake-nrepl [f responses]
     (sb/with-sandbox [h {".nrepl-port" (str (:port f))}]

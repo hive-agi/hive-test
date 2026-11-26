@@ -21,13 +21,10 @@
   (let [dir  (or project_dir ".")
         port (nrepl/read-nrepl-port dir)]
     (if port
-      (let [conn (nrepl/connect! port)]
-        (try
-          (let [responses (nrepl/run-tests! conn :ns namespace :test-id test_id)
-                results   (nrepl/parse-test-results responses)]
-            results)
-          (finally
-            (nrepl/disconnect! conn))))
+      (nrepl/with-connection [conn port]
+        (let [responses (nrepl/run-tests! conn :ns namespace :test-id test_id)
+              results   (nrepl/parse-test-results responses)]
+          results))
       {:error "No .nrepl-port file found" :passed? false})))
 
 (defn handle-test-failures
@@ -36,19 +33,16 @@
   (let [dir  (or project_dir ".")
         port (nrepl/read-nrepl-port dir)]
     (if port
-      (let [conn (nrepl/connect! port)]
-        (try
-          (let [responses (nrepl/eval! conn
-                                       "(do (require 'kaocha.repl)
+      (nrepl/with-connection [conn port]
+        (let [responses (nrepl/eval! conn
+                                     "(do (require 'kaocha.repl)
                                 (let [result (kaocha.repl/run)]
                                   (when-not (zero? (+ (:fail result 0) (:error result 0)))
                                     {:failures (:fail result)
                                      :errors (:error result)
                                      :details (str result)})))")
-                parsed (nrepl/parse-test-results responses)]
-            parsed)
-          (finally
-            (nrepl/disconnect! conn))))
+              parsed (nrepl/parse-test-results responses)]
+          parsed))
       {:error "No .nrepl-port file found"})))
 
 (defn handle-watch-start

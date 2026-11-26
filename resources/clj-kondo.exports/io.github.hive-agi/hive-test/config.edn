@@ -29,7 +29,8 @@
            clojure.test.check.clojure-test/defspec clojure.test/deftest
            ;; The portable test.check subset (cljrs / cljw hosts).
            hive-test.tcheck.clojure-test/defspec          clojure.test/deftest
-           hive-test.tcheck.properties/for-all            clojure.core/let}
+           hive-test.tcheck.properties/for-all            clojure.core/let
+           hive-test.mcp.nrepl/with-connection clojure.core/let}
 
  :hooks
  {:analyze-call
