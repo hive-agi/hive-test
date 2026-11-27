@@ -1,0 +1,249 @@
+{:validate {:valid? true, :problems []},
+ :reached
+ {:roots [[:page :flowers-reports] [:page :flowers]],
+  :controls
+  [:flowers-reports/mount
+   :flowers/filter
+   :flowers/mount
+   :flowers/usage-cancel
+   :flowers/usage-confirm
+   :flowers/usage-open],
+  :events
+  [:flowers/close-modal
+   :flowers/fetch-all
+   :flowers/fetch-usage-report
+   :flowers/open-usage-modal
+   :flowers/record-usage
+   :flowers/set-filter],
+  :undefined-events [],
+  :calls
+  [{:method :get,
+    :path "/api/flowers/items",
+    :event :flowers/fetch-all}
+   {:method :get,
+    :path "/api/flowers/stock",
+    :event :flowers/fetch-all}
+   {:method :get,
+    :path "/api/flowers/usage/report",
+    :event :flowers/fetch-usage-report}
+   {:method :post,
+    :path "/api/flowers/usage",
+    :event :flowers/record-usage}],
+  :routes
+  [{:method :get,
+    :path "/api/flowers/items",
+    :route-name :flowers/list-items,
+    :handler inventory.flowers.handlers/list-flower-items-handler,
+    :domain :flowers}
+   {:method :get,
+    :path "/api/flowers/stock",
+    :route-name :flowers/list-stock,
+    :handler inventory.flowers.handlers/list-stock-handler,
+    :domain :flowers}
+   {:method :get,
+    :path "/api/flowers/usage/report",
+    :route-name :flowers/usage-report,
+    :handler inventory.flowers.handlers/usage-report-handler,
+    :domain :flowers}
+   {:method :post,
+    :path "/api/flowers/usage",
+    :route-name :flowers/record-usage,
+    :handler inventory.flowers.handlers/record-usage-handler,
+    :domain :flowers}]},
+ :report
+ {:pass? false,
+  :service :inventory,
+  :counts {:covered 4, :missing-ui 6, :orphan-event 5},
+  :blocking
+  [{:verdict :missing-ui,
+    :id inventory.flowers.handlers/add-stock-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/api/flowers/stock",
+      :route-name :flowers/add-stock}
+     {:method :post,
+      :path "/flowers/stock",
+      :route-name :flowers/add-stock-legacy}],
+    :orphan-events [:flowers/create-stock]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/create-flower-item-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/api/flowers/items",
+      :route-name :flowers/create-item}
+     {:method :post,
+      :path "/flowers",
+      :route-name :flowers/create-item-legacy}]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/create-supplier-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/flowers/suppliers",
+      :route-name :flowers/create-supplier}],
+    :orphan-events [:flowers/create-supplier]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/delete-stock-handler,
+    :severity :error,
+    :routes
+    [{:method :delete,
+      :path "/flowers/stock/:id",
+      :route-name :flowers/delete-stock}],
+    :orphan-events [:flowers/delete-stock]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/record-purchase-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/api/flowers/purchases",
+      :route-name :flowers/record-purchase}],
+    :orphan-events [:flowers/create-purchase]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/update-stock-handler,
+    :severity :error,
+    :routes
+    [{:method :put,
+      :path "/flowers/stock/:id",
+      :route-name :flowers/update-stock}],
+    :orphan-events [:flowers/update-stock]}],
+  :verdicts
+  [{:verdict :missing-ui,
+    :id inventory.flowers.handlers/add-stock-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/api/flowers/stock",
+      :route-name :flowers/add-stock}
+     {:method :post,
+      :path "/flowers/stock",
+      :route-name :flowers/add-stock-legacy}],
+    :orphan-events [:flowers/create-stock]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/create-flower-item-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/api/flowers/items",
+      :route-name :flowers/create-item}
+     {:method :post,
+      :path "/flowers",
+      :route-name :flowers/create-item-legacy}]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/create-supplier-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/flowers/suppliers",
+      :route-name :flowers/create-supplier}],
+    :orphan-events [:flowers/create-supplier]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/delete-stock-handler,
+    :severity :error,
+    :routes
+    [{:method :delete,
+      :path "/flowers/stock/:id",
+      :route-name :flowers/delete-stock}],
+    :orphan-events [:flowers/delete-stock]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/record-purchase-handler,
+    :severity :error,
+    :routes
+    [{:method :post,
+      :path "/api/flowers/purchases",
+      :route-name :flowers/record-purchase}],
+    :orphan-events [:flowers/create-purchase]}
+   {:verdict :missing-ui,
+    :id inventory.flowers.handlers/update-stock-handler,
+    :severity :error,
+    :routes
+    [{:method :put,
+      :path "/flowers/stock/:id",
+      :route-name :flowers/update-stock}],
+    :orphan-events [:flowers/update-stock]}
+   {:verdict :orphan-event,
+    :id :flowers/create-purchase,
+    :severity :warning,
+    :http [{:method :post, :path "/api/flowers/purchases"}],
+    :handlers [inventory.flowers.handlers/record-purchase-handler],
+    :src {:file "src/inventory/flowers/events.cljs", :line 175}}
+   {:verdict :orphan-event,
+    :id :flowers/create-stock,
+    :severity :warning,
+    :http [{:method :post, :path "/flowers/stock"}],
+    :handlers [inventory.flowers.handlers/add-stock-handler],
+    :src {:file "src/inventory/flowers/events.cljs", :line 120}}
+   {:verdict :orphan-event,
+    :id :flowers/create-supplier,
+    :severity :warning,
+    :http [{:method :post, :path "/flowers/suppliers"}],
+    :handlers [inventory.flowers.handlers/create-supplier-handler],
+    :src {:file "src/inventory/flowers/events.cljs", :line 162}}
+   {:verdict :orphan-event,
+    :id :flowers/delete-stock,
+    :severity :warning,
+    :http [{:method :delete, :path ["/flowers/stock/" id]}],
+    :handlers [inventory.flowers.handlers/delete-stock-handler],
+    :src {:file "src/inventory/flowers/events.cljs", :line 150}}
+   {:verdict :orphan-event,
+    :id :flowers/update-stock,
+    :severity :warning,
+    :http [{:method :put, :path ["/flowers/stock/" id]}],
+    :handlers [inventory.flowers.handlers/update-stock-handler],
+    :src {:file "src/inventory/flowers/events.cljs", :line 135}}
+   {:verdict :covered,
+    :id inventory.flowers.handlers/list-flower-items-handler,
+    :severity :info,
+    :routes
+    [{:method :get,
+      :path "/api/flowers/items",
+      :route-name :flowers/list-items}],
+    :via [:flowers/fetch-all]}
+   {:verdict :covered,
+    :id inventory.flowers.handlers/list-stock-handler,
+    :severity :info,
+    :routes
+    [{:method :get,
+      :path "/api/flowers/stock",
+      :route-name :flowers/list-stock}],
+    :via [:flowers/fetch-all]}
+   {:verdict :covered,
+    :id inventory.flowers.handlers/record-usage-handler,
+    :severity :info,
+    :routes
+    [{:method :post,
+      :path "/api/flowers/usage",
+      :route-name :flowers/record-usage}],
+    :via [:flowers/record-usage]}
+   {:verdict :covered,
+    :id inventory.flowers.handlers/usage-report-handler,
+    :severity :info,
+    :routes
+    [{:method :get,
+      :path "/api/flowers/usage/report",
+      :route-name :flowers/usage-report}],
+    :via [:flowers/fetch-usage-report]}],
+  :waived [],
+  :baseline-diff
+  {:new
+   [{:verdict :missing-ui,
+     :id inventory.flowers.handlers/add-stock-handler}
+    {:verdict :missing-ui,
+     :id inventory.flowers.handlers/create-flower-item-handler}
+    {:verdict :missing-ui,
+     :id inventory.flowers.handlers/create-supplier-handler}
+    {:verdict :missing-ui,
+     :id inventory.flowers.handlers/delete-stock-handler}
+    {:verdict :missing-ui,
+     :id inventory.flowers.handlers/record-purchase-handler}
+    {:verdict :missing-ui,
+     :id inventory.flowers.handlers/update-stock-handler}
+    {:verdict :orphan-event, :id :flowers/create-purchase}
+    {:verdict :orphan-event, :id :flowers/create-stock}
+    {:verdict :orphan-event, :id :flowers/create-supplier}
+    {:verdict :orphan-event, :id :flowers/delete-stock}
+    {:verdict :orphan-event, :id :flowers/update-stock}],
+   :fixed [],
+   :unchanged [],
+   :baseline []}}}
